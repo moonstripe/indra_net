@@ -1,0 +1,22 @@
+name = "indra-net-api"
+main = "src/index.ts"
+compatibility_date = "2024-06-14"
+
+[vars]
+ENVIRONMENT = "development"
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "indra-net-db"
+database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" # Replace after `wrangler d1 create`
+
+# R2 Storage binding (for .indra files)
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "indra-net-storage"
+
+# KV for sessions/cache
+[[kv_namespaces]]
+binding = "SESSIONS"
+id = "xxxxxxxx" # Replace after `wrangler kv:namespace create`

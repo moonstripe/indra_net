@@ -47,6 +47,12 @@ export default function BaseDetail() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<Thought[] | null>(null)
   const [searching, setSearching] = useState(false)
+  
+  // Settings form state
+  const [settingsDescription, setSettingsDescription] = useState('')
+  const [settingsVisibility, setSettingsVisibility] = useState<'public' | 'private'>('private')
+  const [savingSettings, setSavingSettings] = useState(false)
+  const [settingsMessage, setSettingsMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
     if (id) {
@@ -54,10 +60,19 @@ export default function BaseDetail() {
     }
   }, [id])
 
+  // Initialize settings form when base loads
   useEffect(() => {
-    if (base && activeTab === 'thoughts') {
+    if (base) {
+      setSettingsDescription(base.description || '')
+      setSettingsVisibility(base.visibility)
+    }
+  }, [base])
+
+  useEffect(() => {
+    if (base && (activeTab === 'thoughts' || activeTab === 'overview')) {
       fetchThoughts()
-    } else if (base && activeTab === 'history') {
+    }
+    if (base && activeTab === 'history') {
       fetchCommits()
     }
   }, [base, activeTab])
@@ -138,6 +153,38 @@ export default function BaseDetail() {
       navigate('/dashboard')
     } catch (err: any) {
       alert('Failed to delete database: ' + err.message)
+    }
+  }
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true)
+    setSettingsMessage(null)
+    
+    try {
+      const res = await fetch(`/api/bases/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: settingsDescription,
+          visibility: settingsVisibility,
+        }),
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save settings')
+      }
+      
+      const data = await res.json()
+      setBase(data.base)
+      setSettingsMessage({ type: 'success', text: 'Settings saved successfully' })
+    } catch (err: any) {
+      setSettingsMessage({ type: 'error', text: err.message })
+    } finally {
+      setSavingSettings(false)
     }
   }
 
@@ -257,36 +304,98 @@ export default function BaseDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Quick Start */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
-            <h3 className="font-semibold mb-4">Quick Start</h3>
-            <div className="space-y-4">
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Clone this database locally:</p>
-                <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
-                  indra clone {user?.name || 'username'}/{base.name}
-                </code>
+          {thoughts.length === 0 ? (
+            /* Quick Start - shown when no thoughts exist */
+            <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+              <h3 className="font-semibold mb-4">🚀 Get Started</h3>
+              <p className="text-gray-400 mb-6">
+                This database is empty. Follow these steps to start syncing your thoughts:
+              </p>
+              
+              <div className="space-y-6">
+                {/* Step 1: Install */}
+                <div className="border-l-2 border-purple-500 pl-4">
+                  <h4 className="font-medium text-purple-400 mb-2">1. Install the CLI</h4>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Install the Indra CLI using Cargo:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    cargo install indra_db
+                  </code>
+                </div>
+
+                {/* Step 2: Login */}
+                <div className="border-l-2 border-purple-500 pl-4">
+                  <h4 className="font-medium text-purple-400 mb-2">2. Authenticate</h4>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Login to connect your CLI to IndraNet:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    indra login
+                  </code>
+                </div>
+
+                {/* Step 3: Clone or Create */}
+                <div className="border-l-2 border-purple-500 pl-4">
+                  <h4 className="font-medium text-purple-400 mb-2">3. Clone this database</h4>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Download this database to your machine:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    indra clone {user?.name || 'username'}/{base.name}
+                  </code>
+                  <p className="text-sm text-gray-400 mt-3 mb-2">
+                    Or link an existing local database:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    indra remote add origin {user?.name || 'username'}/{base.name}
+                  </code>
+                </div>
+
+                {/* Step 4: Add thoughts */}
+                <div className="border-l-2 border-purple-500 pl-4">
+                  <h4 className="font-medium text-purple-400 mb-2">4. Add your first thought</h4>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Create a thought with automatic embedding:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    indra add "Your first thought goes here"
+                  </code>
+                </div>
+
+                {/* Step 5: Push */}
+                <div className="border-l-2 border-purple-500 pl-4">
+                  <h4 className="font-medium text-purple-400 mb-2">5. Push to IndraNet</h4>
+                  <p className="text-sm text-gray-400 mb-2">
+                    Sync your database with visualization:
+                  </p>
+                  <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
+                    indra push origin --viz
+                  </code>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-400 mb-2">Or link an existing database:</p>
-                <code className="block bg-black/50 p-3 rounded text-sm font-mono text-green-400">
-                  indra remote add origin {user?.name || 'username'}/{base.name}
-                </code>
+
+              <div className="mt-6 p-4 bg-purple-900/20 border border-purple-800/50 rounded-lg">
+                <p className="text-sm text-purple-300">
+                  💡 <strong>Tip:</strong> Use the MCP server (<code className="text-purple-400">indra_db_mcp</code>) to let AI agents interact with your knowledge base directly.
+                </p>
               </div>
             </div>
-          </div>
-
-          {/* Recent Activity */}
-          <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
-            <h3 className="font-semibold mb-4">Recent Thoughts</h3>
-            {thoughts.length === 0 ? (
-              <p className="text-gray-500 text-sm">
-                No thoughts yet. Push your local .indra database to see them here.
-              </p>
-            ) : (
+          ) : (
+            /* Recent Thoughts - shown when thoughts exist */
+            <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold">Recent Thoughts</h3>
+                <Link
+                  to={`/bases/${id}/viz`}
+                  className="text-sm text-purple-400 hover:text-purple-300"
+                >
+                  View in 3D →
+                </Link>
+              </div>
               <div className="space-y-3">
                 {thoughts.slice(0, 5).map((thought) => (
-                  <div key={thought.id} className="text-sm">
+                  <div key={thought.id} className="text-sm border-l-2 border-gray-700 pl-3">
                     <p className="text-gray-300 line-clamp-2">{thought.content}</p>
                     <p className="text-gray-600 text-xs mt-1">
                       {formatRelativeTime(thought.committed_at)}
@@ -294,8 +403,16 @@ export default function BaseDetail() {
                   </div>
                 ))}
               </div>
-            )}
-          </div>
+              {thoughts.length > 5 && (
+                <button
+                  onClick={() => setActiveTab('thoughts')}
+                  className="mt-4 text-sm text-purple-400 hover:text-purple-300"
+                >
+                  View all {thoughts.length} thoughts →
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -390,36 +507,55 @@ export default function BaseDetail() {
           {/* Metadata */}
           <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
             <h3 className="font-semibold mb-4">Database Settings</h3>
+            
+            {settingsMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${
+                settingsMessage.type === 'success' 
+                  ? 'bg-green-900/50 text-green-400 border border-green-800' 
+                  : 'bg-red-900/50 text-red-400 border border-red-800'
+              }`}>
+                {settingsMessage.text}
+              </div>
+            )}
+            
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Name</label>
                 <input
                   type="text"
-                  defaultValue={base.name}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                  value={base.name}
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 text-gray-500"
                   disabled
                 />
+                <p className="text-xs text-gray-500 mt-1">Database names cannot be changed after creation.</p>
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Description</label>
                 <textarea
-                  defaultValue={base.description || ''}
+                  value={settingsDescription}
+                  onChange={(e) => setSettingsDescription(e.target.value)}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
                   rows={3}
+                  placeholder="Add a description for this database..."
                 />
               </div>
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Visibility</label>
                 <select
-                  defaultValue={base.visibility}
+                  value={settingsVisibility}
+                  onChange={(e) => setSettingsVisibility(e.target.value as 'public' | 'private')}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
                 >
-                  <option value="private">Private</option>
-                  <option value="public">Public</option>
+                  <option value="private">Private - Only you can view</option>
+                  <option value="public">Public - Anyone can view</option>
                 </select>
               </div>
-              <button className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                Save Changes
+              <button 
+                onClick={handleSaveSettings}
+                disabled={savingSettings}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {savingSettings ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

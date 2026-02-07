@@ -453,6 +453,73 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
 });
 
 /**
+ * Get commits list for a base (public bases accessible without auth)
+ * 
+ * This reads from the viz data which contains commit history.
+ * Returns commits in a format suitable for timeline display.
+ */
+basesRoutes.get('/:id/commits', optionalAuth, async (c) => {
+  const user = c.get('user') as User | undefined;
+  const id = c.req.param('id');
+  const limit = parseInt(c.req.query('limit') || '50');
+  
+  const base = await c.env.DB.prepare(
+    'SELECT * FROM indra_bases WHERE id = ?'
+  ).bind(id).first<IndraBase>();
+  
+  if (!base) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check access
+  if (base.visibility === 'private' && base.owner_id !== user?.id) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Read from viz data
+  const vizKey = `${base.storage_key}.viz.json`;
+  const cached = await c.env.STORAGE.get(vizKey);
+  
+  if (!cached) {
+    return c.json({ 
+      commits: [],
+      message: 'No commit data. Push with --viz flag to populate.',
+    });
+  }
+  
+  const vizData = await cached.json() as { 
+    commits?: Array<{
+      hash: string;
+      message: string;
+      author: string;
+      timestamp: number;
+      parents: string[];
+    }> 
+  };
+  
+  if (!vizData.commits || vizData.commits.length === 0) {
+    return c.json({ 
+      commits: [],
+      message: 'No commit history in viz data. Re-push with latest CLI.',
+    });
+  }
+  
+  // Transform to frontend format
+  const commits = vizData.commits
+    .slice(0, limit)
+    .map(c => ({
+      id: c.hash,
+      hash: c.hash,
+      message: c.message,
+      author: c.author,
+      timestamp: new Date(c.timestamp).toISOString(),
+      parent_hash: c.parents[0] || null,
+    }));
+  
+  return c.json({ commits });
+});
+
+/**
  * Get thoughts list for a base (public bases accessible without auth)
  * 
  * This reads from the viz data which contains thought content.

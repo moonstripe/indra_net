@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
   name TEXT NOT NULL,
   avatar_url TEXT,
   github_id TEXT UNIQUE,
+  github_username TEXT UNIQUE,
   google_id TEXT UNIQUE,
   tier TEXT NOT NULL DEFAULT 'hobby' CHECK (tier IN ('hobby', 'pro', 'enterprise')),
   stripe_customer_id TEXT UNIQUE,
@@ -17,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 -- Index for OAuth lookups
 CREATE INDEX IF NOT EXISTS idx_users_github_id ON users(github_id);
+CREATE INDEX IF NOT EXISTS idx_users_github_username ON users(github_username);
 CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
 
 -- IndraBases table (remote .indra databases)

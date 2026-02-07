@@ -44,6 +44,7 @@ export interface User {
   name: string;
   avatar_url?: string;
   github_id?: string;
+  github_username?: string;
   google_id?: string;
   tier: UserTier;
   stripe_customer_id?: string;

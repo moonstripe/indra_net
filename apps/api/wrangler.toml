@@ -2,6 +2,9 @@ name = "indra-net-api"
 main = "src/index.ts"
 compatibility_date = "2024-06-14"
 
+[dev]
+port = 8787
+
 [vars]
 ENVIRONMENT = "development"
 
@@ -9,7 +12,7 @@ ENVIRONMENT = "development"
 [[d1_databases]]
 binding = "DB"
 database_name = "indra-net-db"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" # Replace after `wrangler d1 create`
+database_id = "1f37dd51-bfe8-4f4c-aa7d-509793973c01"
 
 # R2 Storage binding (for .indra files)
 [[r2_buckets]]
@@ -19,4 +22,4 @@ bucket_name = "indra-net-storage"
 # KV for sessions/cache
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "xxxxxxxx" # Replace after `wrangler kv:namespace create`
+id = "d2582dd6447345b689b098e81dea5596"

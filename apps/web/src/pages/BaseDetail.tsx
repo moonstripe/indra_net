@@ -200,6 +200,13 @@ export default function BaseDetail() {
         </div>
         
         <div className="flex gap-2">
+          <Link
+            to={`/bases/${id}/viz`}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 px-4 py-2 rounded-lg text-sm transition-all"
+            title="Open 3D visualization"
+          >
+            🌌 Visualize
+          </Link>
           <button
             onClick={copyPullCommand}
             className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm transition-colors"

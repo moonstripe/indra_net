@@ -451,3 +451,62 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
     message: 'No visualization data. Push with --viz flag to generate.',
   });
 });
+
+/**
+ * Get thoughts list for a base (public bases accessible without auth)
+ * 
+ * This reads from the viz data which contains thought content.
+ * Returns thoughts in a format suitable for list display.
+ */
+basesRoutes.get('/:id/thoughts', optionalAuth, async (c) => {
+  const user = c.get('user') as User | undefined;
+  const id = c.req.param('id');
+  const limit = parseInt(c.req.query('limit') || '50');
+  
+  const base = await c.env.DB.prepare(
+    'SELECT * FROM indra_bases WHERE id = ?'
+  ).bind(id).first<IndraBase>();
+  
+  if (!base) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check access
+  if (base.visibility === 'private' && base.owner_id !== user?.id) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Read from viz data
+  const vizKey = `${base.storage_key}.viz.json`;
+  const cached = await c.env.STORAGE.get(vizKey);
+  
+  if (!cached) {
+    return c.json({ 
+      thoughts: [],
+      message: 'No thoughts data. Push with --viz flag to populate.',
+    });
+  }
+  
+  const vizData = await cached.json() as { thoughts: Array<{
+    id: string;
+    content: string;
+    thought_type?: string;
+    has_embedding: boolean;
+    created_at: number;
+  }> };
+  
+  // Transform viz thoughts to list format
+  const thoughts = vizData.thoughts
+    .slice(0, limit)
+    .map(t => ({
+      id: t.id,
+      thought_id: t.id,
+      content: t.content,
+      thought_type: t.thought_type,
+      has_embedding: t.has_embedding,
+      created_at: new Date(t.created_at).toISOString(),
+      committed_at: new Date(t.created_at).toISOString(), // Use created_at as committed_at
+    }));
+  
+  return c.json({ thoughts });
+});

@@ -250,7 +250,7 @@ export default function BaseVisualization() {
       </div>
 
       {/* Main visualization */}
-      <div className="w-full h-screen">
+      <div className="absolute inset-0">
         {vizData && vizData.thoughts.length > 0 ? (
           <VectorRenderer
             ref={rendererRef}
@@ -259,7 +259,7 @@ export default function BaseVisualization() {
             showUI={false}
             onReady={handleRendererReady}
             onSelect={handleSelect}
-            style={{ width: '100%', height: '100%' }}
+            style={{ width: '100vw', height: '100vh', display: 'block' }}
           />
         ) : (
           <div className="flex items-center justify-center h-full">

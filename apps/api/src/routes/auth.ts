@@ -241,12 +241,11 @@ authRoutes.get('/cli/callback', async (c) => {
     return c.html('<h1>Error</h1><p>Missing code or state</p>');
   }
   
-  // Verify state
+  // Verify state exists (don't delete yet - we need to update it with tokens)
   const stateData = await c.env.SESSIONS.get(`cli_state:${state}`);
   if (!stateData) {
     return c.html('<h1>Error</h1><p>Invalid or expired state</p>');
   }
-  await c.env.SESSIONS.delete(`cli_state:${state}`);
   
   if (!c.env.GITHUB_CLIENT_ID || !c.env.GITHUB_CLIENT_SECRET) {
     return c.html('<h1>Error</h1><p>GitHub OAuth not configured</p>');

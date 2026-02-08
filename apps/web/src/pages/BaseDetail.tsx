@@ -48,6 +48,8 @@ export default function BaseDetail() {
   const [searchResults, setSearchResults] = useState<Thought[] | null>(null)
   const [searching, setSearching] = useState(false)
   
+  const [copyFeedback, setCopyFeedback] = useState<'pull' | 'push' | null>(null)
+
   // Settings form state
   const [settingsDescription, setSettingsDescription] = useState('')
   const [settingsVisibility, setSettingsVisibility] = useState<'public' | 'private'>('private')
@@ -191,11 +193,15 @@ export default function BaseDetail() {
   const copyPushCommand = () => {
     const cmd = `indra push ${base?.name}`
     navigator.clipboard.writeText(cmd)
+    setCopyFeedback('push')
+    setTimeout(() => setCopyFeedback(null), 2000)
   }
 
   const copyPullCommand = () => {
     const cmd = `indra pull ${base?.name}`
     navigator.clipboard.writeText(cmd)
+    setCopyFeedback('pull')
+    setTimeout(() => setCopyFeedback(null), 2000)
   }
 
   if (authLoading || loading) {
@@ -257,16 +263,16 @@ export default function BaseDetail() {
           <button
             onClick={copyPullCommand}
             className="bg-gray-800 hover:bg-gray-700 px-4 py-2 rounded-lg text-sm transition-colors"
-            title="Copy pull command"
+            title="Copy pull command to clipboard"
           >
-            ⬇️ Pull
+            {copyFeedback === 'pull' ? '✓ Copied!' : '⬇️ Pull'}
           </button>
           <button
             onClick={copyPushCommand}
             className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm transition-colors"
-            title="Copy push command"
+            title="Copy push command to clipboard"
           >
-            ⬆️ Push
+            {copyFeedback === 'push' ? '✓ Copied!' : '⬆️ Push'}
           </button>
         </div>
       </div>

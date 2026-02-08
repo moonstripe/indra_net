@@ -21,12 +21,23 @@ export default function Settings() {
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyValue, setNewKeyValue] = useState('')
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  
+  // Profile form state
+  const [displayName, setDisplayName] = useState('')
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
 
   useEffect(() => {
     if (user && activeTab === 'api-keys') {
       fetchApiKeys()
     }
   }, [user, activeTab])
+  
+  useEffect(() => {
+    if (user) {
+      setDisplayName(user.name || '')
+    }
+  }, [user])
 
   const fetchApiKeys = async () => {
     setLoadingKeys(true)
@@ -108,6 +119,31 @@ export default function Settings() {
       console.error('Failed to open billing portal:', err)
     }
   }
+  
+  const handleSaveProfile = async () => {
+    setSavingProfile(true)
+    setProfileMessage(null)
+    
+    try {
+      const res = await fetch('/api/users/me', {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: displayName }),
+      })
+      
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save profile')
+      }
+      
+      setProfileMessage({ type: 'success', text: 'Profile saved successfully' })
+    } catch (err: any) {
+      setProfileMessage({ type: 'error', text: err.message })
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   if (authLoading) {
     return (
@@ -173,12 +209,23 @@ export default function Settings() {
               </div>
             </div>
 
+            {profileMessage && (
+              <div className={`mb-4 p-3 rounded-lg text-sm ${
+                profileMessage.type === 'success' 
+                  ? 'bg-green-900/50 text-green-400 border border-green-800' 
+                  : 'bg-red-900/50 text-red-400 border border-red-800'
+              }`}>
+                {profileMessage.text}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-sm text-gray-400 mb-1">Display Name</label>
                 <input
                   type="text"
-                  defaultValue={user.name}
+                  value={displayName}
+                  onChange={(e) => setDisplayName(e.target.value)}
                   className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
                 />
               </div>
@@ -187,15 +234,19 @@ export default function Settings() {
                 <input
                   type="email"
                   defaultValue={user.email}
-                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+                  className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500 text-gray-500"
                   disabled
                 />
                 <p className="text-xs text-gray-500 mt-1">
                   Email is managed by your OAuth provider
                 </p>
               </div>
-              <button className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg text-sm font-medium transition-colors">
-                Save Changes
+              <button 
+                onClick={handleSaveProfile}
+                disabled={savingProfile || displayName === user.name}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+              >
+                {savingProfile ? 'Saving...' : 'Save Changes'}
               </button>
             </div>
           </div>

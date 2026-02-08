@@ -395,7 +395,8 @@ authRoutes.get('/cli/callback', async (c) => {
     
   } catch (error) {
     console.error('CLI OAuth error:', error);
-    return c.html('<h1>Error</h1><p>Authentication failed</p>');
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return c.html(`<h1>Error</h1><p>Authentication failed: ${errorMessage}</p>`);
   }
 });
 

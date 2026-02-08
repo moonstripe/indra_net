@@ -16,6 +16,23 @@ const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000;
  * Get current user from session
  */
 authRoutes.get('/me', async (c) => {
+  // Check Bearer token first
+  const authHeader = c.req.header('Authorization');
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.slice(7);
+    const tokenData = await c.env.SESSIONS.get(`access:${token}`, 'json') as { user_id: string } | null;
+    if (tokenData) {
+      const user = await c.env.DB.prepare(
+        'SELECT * FROM users WHERE id = ?'
+      ).bind(tokenData.user_id).first<User>();
+      if (user) {
+        return c.json({ user });
+      }
+    }
+    return c.json({ user: null }, 200);
+  }
+
+  // Fall back to session cookie
   const sessionId = getCookie(c, 'session');
   
   if (!sessionId) {
@@ -148,7 +165,22 @@ authRoutes.post('/github', async (c) => {
       return c.json({ error: 'Failed to create user' }, 500);
     }
     
-    // Create session
+    // Generate access and refresh tokens (works cross-origin, unlike cookies)
+    const accessToken = generateId() + generateId();
+    const refreshToken = generateId() + generateId();
+    
+    // Store access token in KV (1 hour)
+    await c.env.SESSIONS.put(`access:${accessToken}`, JSON.stringify({
+      user_id: user.id,
+    }), { expirationTtl: 60 * 60 });
+    
+    // Store refresh token in KV (30 days)
+    await c.env.SESSIONS.put(`refresh:${refreshToken}`, JSON.stringify({
+      user_id: user.id,
+      created_at: Date.now(),
+    }), { expirationTtl: 30 * 24 * 60 * 60 });
+    
+    // Also set cookie for same-origin usage (local dev)
     const sessionId = generateId();
     const session: Session = {
       user_id: user.id,
@@ -160,7 +192,6 @@ authRoutes.post('/github', async (c) => {
       expirationTtl: SESSION_DURATION_MS / 1000,
     });
     
-    // Set cookie
     setCookie(c, 'session', sessionId, {
       httpOnly: true,
       secure: c.env.ENVIRONMENT === 'production',
@@ -169,7 +200,12 @@ authRoutes.post('/github', async (c) => {
       path: '/',
     });
     
-    return c.json({ user });
+    return c.json({
+      user,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: 60 * 60,
+    });
     
   } catch (error) {
     console.error('GitHub OAuth error:', error);

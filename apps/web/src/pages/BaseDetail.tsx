@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { apiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 interface IndraBase {
   id: string
@@ -85,7 +85,7 @@ export default function BaseDetail() {
 
   const fetchBase = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/bases/${id}`), { credentials: 'include' })
+      const res = await apiFetch(`/api/bases/${id}`)
       if (!res.ok) {
         if (res.status === 404) {
           setError('Database not found')
@@ -105,7 +105,7 @@ export default function BaseDetail() {
 
   const fetchThoughts = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/bases/${id}/thoughts?limit=50`), { credentials: 'include' })
+      const res = await apiFetch(`/api/bases/${id}/thoughts?limit=50`)
       const data = await res.json()
       setThoughts(data.thoughts || [])
     } catch (err) {
@@ -115,7 +115,7 @@ export default function BaseDetail() {
 
   const fetchCommits = async () => {
     try {
-      const res = await fetch(apiUrl(`/api/bases/${id}/commits?limit=50`), { credentials: 'include' })
+      const res = await apiFetch(`/api/bases/${id}/commits?limit=50`)
       const data = await res.json()
       setCommits(data.commits || [])
     } catch (err) {
@@ -132,8 +132,8 @@ export default function BaseDetail() {
     
     setSearching(true)
     try {
-      const res = await fetch(
-        apiUrl(`/api/bases/${id}/search?q=${encodeURIComponent(searchQuery)}`),
+      const res = await apiFetch(
+        `/api/bases/${id}/search?q=${encodeURIComponent(searchQuery)}`,
         { credentials: 'include' }
       )
       const data = await res.json()
@@ -151,7 +151,7 @@ export default function BaseDetail() {
     }
 
     try {
-      const res = await fetch(apiUrl(`/api/bases/${id}`), {
+      const res = await apiFetch(`/api/bases/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })
@@ -167,7 +167,7 @@ export default function BaseDetail() {
     setSettingsMessage(null)
     
     try {
-      const res = await fetch(apiUrl(`/api/bases/${id}`), {
+      const res = await apiFetch(`/api/bases/${id}`, {
         method: 'PATCH',
         credentials: 'include',
         headers: {

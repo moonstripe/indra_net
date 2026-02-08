@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { VectorRenderer, type VectorRendererHandle } from 'react-vector-renderer'
-import { apiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 interface VizThought {
   id: string
@@ -148,7 +148,7 @@ export default function BaseVisualization() {
   const fetchBaseAndViz = async () => {
     try {
       // Fetch base info first
-      const baseRes = await fetch(apiUrl(`/api/bases/${id}`), { credentials: 'include' })
+      const baseRes = await apiFetch(`/api/bases/${id}`)
       if (!baseRes.ok) {
         if (baseRes.status === 404) {
           setError('Database not found')
@@ -162,7 +162,7 @@ export default function BaseVisualization() {
       setCanEdit(baseData.base.owner_id === user?.id)
 
       // Fetch visualization data
-      const vizRes = await fetch(apiUrl(`/api/bases/${id}/viz`), { credentials: 'include' })
+      const vizRes = await apiFetch(`/api/bases/${id}/viz`)
       if (!vizRes.ok) {
         throw new Error('Failed to fetch visualization data')
       }

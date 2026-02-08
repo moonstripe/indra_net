@@ -7,7 +7,7 @@ export default function AuthCallback() {
   const { provider } = useParams<{ provider: 'github' | 'google' }>()
   const [searchParams] = useSearchParams()
   const navigate = useNavigate()
-  const { refresh } = useAuth()
+  const { refresh, handleAuthTokens } = useAuth()
   const [error, setError] = useState<string | null>(null)
   const exchangedRef = useRef(false)
 
@@ -39,6 +39,11 @@ export default function AuthCallback() {
           throw new Error(data.error || 'Authentication failed')
         }
 
+        // Store tokens for cross-origin auth
+        if (data.access_token && data.refresh_token) {
+          handleAuthTokens(data.access_token, data.refresh_token)
+        }
+
         // Refresh auth context with new user
         await refresh()
         
@@ -51,7 +56,7 @@ export default function AuthCallback() {
     }
 
     exchangeCode()
-  }, [provider, searchParams, navigate, refresh])
+  }, [provider, searchParams, navigate, refresh, handleAuthTokens])
 
   if (error) {
     return (

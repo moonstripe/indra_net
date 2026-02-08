@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { apiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 interface IndraBase {
   id: string
@@ -27,7 +27,7 @@ export default function Dashboard() {
 
   const fetchBases = async () => {
     try {
-      const res = await fetch(apiUrl('/api/bases'), { credentials: 'include' })
+      const res = await apiFetch('/api/bases')
       const data = await res.json()
       setBases(data.bases || [])
     } catch (error) {
@@ -183,7 +183,7 @@ function CreateBaseModal({
     setError('')
 
     try {
-      const res = await fetch(apiUrl('/api/bases'), {
+      const res = await apiFetch('/api/bases', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',

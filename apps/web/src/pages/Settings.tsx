@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { apiUrl } from '../lib/api'
+import { apiFetch } from '../lib/api'
 
 interface ApiKey {
   id: string
@@ -43,7 +43,7 @@ export default function Settings() {
   const fetchApiKeys = async () => {
     setLoadingKeys(true)
     try {
-      const res = await fetch(apiUrl('/api/api-keys'), { credentials: 'include' })
+      const res = await apiFetch('/api/api-keys')
       const data = await res.json()
       setApiKeys(data.keys || [])
     } catch (err) {
@@ -57,7 +57,7 @@ export default function Settings() {
     if (!newKeyName.trim()) return
 
     try {
-      const res = await fetch(apiUrl('/api/api-keys'), {
+      const res = await apiFetch('/api/api-keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
@@ -78,7 +78,7 @@ export default function Settings() {
     if (!confirm('Are you sure you want to delete this API key?')) return
 
     try {
-      await fetch(apiUrl(`/api/api-keys/${id}`), {
+      await apiFetch(`/api/api-keys/${id}`, {
         method: 'DELETE',
         credentials: 'include',
       })
@@ -91,7 +91,7 @@ export default function Settings() {
   const handleUpgrade = async () => {
     setUpgradeLoading(true)
     try {
-      const res = await fetch(apiUrl('/api/billing/checkout'), {
+      const res = await apiFetch('/api/billing/checkout', {
         method: 'POST',
         credentials: 'include',
       })
@@ -108,7 +108,7 @@ export default function Settings() {
 
   const openBillingPortal = async () => {
     try {
-      const res = await fetch(apiUrl('/api/billing/portal'), {
+      const res = await apiFetch('/api/billing/portal', {
         method: 'POST',
         credentials: 'include',
       })
@@ -126,7 +126,7 @@ export default function Settings() {
     setProfileMessage(null)
     
     try {
-      const res = await fetch(apiUrl('/api/users/me'), {
+      const res = await apiFetch('/api/users/me', {
         method: 'PATCH',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

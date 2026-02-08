@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import { apiUrl } from '../lib/api'
+import { apiFetch, getAccessToken, setTokens, clearTokens } from '../lib/api'
 
 export interface User {
   id: string
@@ -18,6 +18,7 @@ interface AuthContextType {
   login: (provider: 'github' | 'google') => void
   logout: () => Promise<void>
   refresh: () => Promise<void>
+  handleAuthTokens: (accessToken: string, refreshToken: string) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -28,7 +29,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = async () => {
     try {
-      const res = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' })
+      // Only try to fetch if we have a token (or in dev where cookies work)
+      const token = getAccessToken()
+      if (!token && import.meta.env.VITE_API_URL) {
+        // In production with no token, skip the fetch
+        setUser(null)
+        setLoading(false)
+        return
+      }
+      const res = await apiFetch('/api/auth/me')
       const data = await res.json()
       setUser(data.user)
     } catch {
@@ -57,16 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const handleAuthTokens = (accessToken: string, refreshToken: string) => {
+    setTokens(accessToken, refreshToken)
+  }
+
   const logout = async () => {
-    await fetch(apiUrl('/api/auth/logout'), { 
-      method: 'POST',
-      credentials: 'include' 
-    })
+    await apiFetch('/api/auth/logout', { method: 'POST' })
+    clearTokens()
     setUser(null)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh, handleAuthTokens }}>
       {children}
     </AuthContext.Provider>
   )

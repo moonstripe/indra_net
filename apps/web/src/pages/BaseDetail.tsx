@@ -49,6 +49,9 @@ export default function BaseDetail() {
   const [searching, setSearching] = useState(false)
   
   const [copyFeedback, setCopyFeedback] = useState<boolean>(false)
+  
+  // Selection state for visualize selected feature
+  const [selectedThoughtIds, setSelectedThoughtIds] = useState<Set<string>>(new Set())
 
   // Settings form state
   const [settingsDescription, setSettingsDescription] = useState('')
@@ -195,6 +198,28 @@ export default function BaseDetail() {
     navigator.clipboard.writeText(cmd)
     setCopyFeedback(true)
     setTimeout(() => setCopyFeedback(false), 2000)
+  }
+  
+  const toggleThoughtSelection = (thoughtId: string) => {
+    setSelectedThoughtIds(prev => {
+      const next = new Set(prev)
+      if (next.has(thoughtId)) {
+        next.delete(thoughtId)
+      } else {
+        next.add(thoughtId)
+      }
+      return next
+    })
+  }
+  
+  const clearSelection = () => {
+    setSelectedThoughtIds(new Set())
+  }
+  
+  const visualizeSelected = () => {
+    if (selectedThoughtIds.size === 0) return
+    const focusParam = Array.from(selectedThoughtIds).join(',')
+    navigate(`/bases/${id}/viz?focus=${encodeURIComponent(focusParam)}`)
   }
 
   if (authLoading || loading) {
@@ -417,35 +442,79 @@ export default function BaseDetail() {
 
       {activeTab === 'thoughts' && (
         <div className="space-y-6">
-          {/* Search */}
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search thoughts semantically..."
-              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
-            />
-            <button
-              type="submit"
-              disabled={searching}
-              className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-6 py-2 rounded-lg font-medium transition-colors"
-            >
-              {searching ? 'Searching...' : 'Search'}
-            </button>
-          </form>
+          {/* Search and selection controls */}
+          <div className="flex flex-col sm:flex-row gap-4">
+            <form onSubmit={handleSearch} className="flex gap-2 flex-1">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search thoughts semantically..."
+                className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 focus:outline-none focus:border-purple-500"
+              />
+              <button
+                type="submit"
+                disabled={searching}
+                className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                {searching ? 'Searching...' : 'Search'}
+              </button>
+            </form>
+            
+            {/* Selection actions */}
+            {selectedThoughtIds.size > 0 && (
+              <div className="flex gap-2 items-center">
+                <span className="text-sm text-gray-400">
+                  {selectedThoughtIds.size} selected
+                </span>
+                <button
+                  onClick={visualizeSelected}
+                  className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2"
+                >
+                  🌌 Visualize Selected
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="text-gray-400 hover:text-white px-2 py-2"
+                  title="Clear selection"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+          </div>
 
           {/* Results */}
           <div className="space-y-4">
             {(searchResults || thoughts).map((thought) => (
               <div
                 key={thought.id}
-                className="bg-gray-900/50 border border-gray-800 rounded-lg p-4"
+                onClick={() => toggleThoughtSelection(thought.thought_id)}
+                className={`bg-gray-900/50 border rounded-lg p-4 cursor-pointer transition-colors ${
+                  selectedThoughtIds.has(thought.thought_id)
+                    ? 'border-purple-500 bg-purple-900/20'
+                    : 'border-gray-800 hover:border-gray-700'
+                }`}
               >
-                <p className="text-gray-200 whitespace-pre-wrap">{thought.content}</p>
-                <div className="flex gap-4 mt-3 text-xs text-gray-500">
-                  <span>ID: {thought.thought_id}</span>
-                  <span>{formatRelativeTime(thought.committed_at)}</span>
+                <div className="flex items-start gap-3">
+                  <div className={`mt-1 w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
+                    selectedThoughtIds.has(thought.thought_id)
+                      ? 'border-purple-500 bg-purple-500'
+                      : 'border-gray-600'
+                  }`}>
+                    {selectedThoughtIds.has(thought.thought_id) && (
+                      <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-gray-200 whitespace-pre-wrap">{thought.content}</p>
+                    <div className="flex gap-4 mt-3 text-xs text-gray-500">
+                      <span>ID: {thought.thought_id}</span>
+                      <span>{formatRelativeTime(thought.committed_at)}</span>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}

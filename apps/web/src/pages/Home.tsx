@@ -69,6 +69,15 @@ export default function Home() {
         </div>
       </div>
 
+      {/* Comparison Matrix */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <h2 className="text-3xl font-bold text-center mb-4">Why Indra?</h2>
+        <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
+          There are many MCP memory servers. Here's how Indra's git-like architecture gives you capabilities others can't.
+        </p>
+        <ComparisonMatrix />
+      </div>
+
       {/* Pricing Preview */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <h2 className="text-3xl font-bold text-center mb-12">Simple Pricing</h2>
@@ -120,6 +129,119 @@ function FeatureCard({ icon, title, description }: { icon: string; title: string
       <div className="text-4xl mb-4">{icon}</div>
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
       <p className="text-gray-400">{description}</p>
+    </div>
+  )
+}
+
+type ComparisonFeature = {
+  feature: string
+  indra: string
+  others: string
+  highlight?: boolean
+}
+
+const comparisonData: ComparisonFeature[] = [
+  {
+    feature: 'Branching',
+    indra: 'Multi-branch exploration',
+    others: 'Linear only',
+    highlight: true,
+  },
+  {
+    feature: 'Diff / Compare',
+    indra: 'Commit-level diffs',
+    others: 'Not supported',
+    highlight: true,
+  },
+  {
+    feature: 'Semantic Search',
+    indra: 'Local HF models',
+    others: 'Varies (API-dependent)',
+  },
+  {
+    feature: 'Graph Relations',
+    indra: 'Typed + weighted edges',
+    others: 'Flat or basic',
+    highlight: true,
+  },
+  {
+    feature: 'Storage',
+    indra: 'Single portable .indra file',
+    others: 'Repo-based / multi-file',
+  },
+  {
+    feature: '3D Visualization',
+    indra: 'PCA + WebGL via IndraNet',
+    others: 'Not available',
+    highlight: true,
+  },
+  {
+    feature: 'Offline-First',
+    indra: 'Full local operation',
+    others: 'Varies',
+  },
+]
+
+function ComparisonMatrix() {
+  return (
+    <div className="overflow-x-auto">
+      {/* Desktop table */}
+      <table className="w-full hidden md:table">
+        <thead>
+          <tr className="border-b border-gray-800">
+            <th className="text-left py-3 px-4 text-gray-400 font-medium">Feature</th>
+            <th className="text-left py-3 px-4 font-semibold text-purple-400">Indra</th>
+            <th className="text-left py-3 px-4 text-gray-400 font-medium">Other MCP Memory Servers</th>
+          </tr>
+        </thead>
+        <tbody>
+          {comparisonData.map((row) => (
+            <tr key={row.feature} className="border-b border-gray-800/50">
+              <td className="py-3 px-4 font-medium">{row.feature}</td>
+              <td className="py-3 px-4">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="text-green-400">✓</span>
+                  <span className={row.highlight ? 'text-purple-300' : 'text-gray-300'}>
+                    {row.indra}
+                  </span>
+                </span>
+              </td>
+              <td className="py-3 px-4 text-gray-500">{row.others}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-4">
+        {comparisonData.map((row) => (
+          <div key={row.feature} className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
+            <h4 className="font-medium mb-2">{row.feature}</h4>
+            <div className="flex flex-col gap-1 text-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-green-400">✓</span>
+                <span className="text-purple-300 font-medium">Indra:</span>
+                <span className="text-gray-300">{row.indra}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-600">—</span>
+                <span className="text-gray-500 font-medium">Others:</span>
+                <span className="text-gray-500">{row.others}</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <p className="text-center text-sm text-gray-500 mt-6">
+        Compared against medha-mcp, git-notes-memory, Grigori, and other MCP memory servers.{' '}
+        <a
+          href="https://github.com/moonstripe/indra_db#how-indra-compares"
+          className="text-purple-400 hover:text-purple-300"
+        >
+          Full comparison →
+        </a>
+      </p>
     </div>
   )
 }

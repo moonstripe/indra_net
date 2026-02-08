@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { apiFetch } from '../lib/api'
+import ActivityHeatmap from '../components/ActivityHeatmap'
 
 interface IndraBase {
   id: string
@@ -13,11 +14,16 @@ interface IndraBase {
   updated_at: string
 }
 
+interface DashboardActivity {
+  dates: string[]
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const [bases, setBases] = useState<IndraBase[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [activityDates, setActivityDates] = useState<string[]>([])
 
   useEffect(() => {
     if (user) {
@@ -29,7 +35,14 @@ export default function Dashboard() {
     try {
       const res = await apiFetch('/api/bases')
       const data = await res.json()
-      setBases(data.bases || [])
+      const fetchedBases: IndraBase[] = data.bases || []
+      setBases(fetchedBases)
+      
+      // Collect activity dates from all bases' updated_at timestamps
+      // For a richer heatmap, we'd fetch commits per base, but this gives
+      // a quick overview using the data we already have
+      const dates = fetchedBases.map((b: IndraBase) => b.updated_at).filter(Boolean)
+      setActivityDates(dates)
     } catch (error) {
       console.error('Failed to fetch bases:', error)
     } finally {
@@ -88,6 +101,17 @@ export default function Dashboard() {
           </Link>
         )}
       </div>
+
+      {/* Activity Heatmap */}
+      {!loading && bases.length > 0 && (
+        <div className="mb-8">
+          <ActivityHeatmap
+            dates={activityDates}
+            label="Your Activity"
+            weeks={20}
+          />
+        </div>
+      )}
 
       {/* Bases Grid */}
       {loading ? (

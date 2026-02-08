@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { apiFetch } from '../lib/api'
+import ActivityHeatmap from '../components/ActivityHeatmap'
 
 interface IndraBase {
   id: string
@@ -78,7 +79,7 @@ export default function BaseDetail() {
     if (base && (activeTab === 'thoughts' || activeTab === 'overview')) {
       fetchThoughts()
     }
-    if (base && activeTab === 'history') {
+    if (base && (activeTab === 'history' || activeTab === 'overview')) {
       fetchCommits()
     }
   }, [base, activeTab])
@@ -329,6 +330,17 @@ export default function BaseDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Activity Heatmap */}
+          {(thoughts.length > 0 || commits.length > 0) && (
+            <ActivityHeatmap
+              dates={[
+                ...thoughts.map(t => t.committed_at || t.created_at),
+                ...commits.map(c => c.timestamp),
+              ]}
+              label="Thought Activity"
+            />
+          )}
+
           {thoughts.length === 0 ? (
             /* Quick Start - shown when no thoughts exist */
             <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">

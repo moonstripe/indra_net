@@ -27,6 +27,7 @@ interface VizMeta {
   reduction_method: string
   original_dim: number
   variance_explained?: [number, number, number]
+  embedder_model?: string
 }
 
 interface VizExport {
@@ -310,6 +311,22 @@ export default function BaseVisualization() {
       {vizData && !selectedThought && (
         <div className="absolute bottom-4 left-4 z-10 bg-gray-900/80 border border-gray-800 rounded-lg p-3 text-xs hidden md:block">
           <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            {vizData.meta.embedder_model && (
+              <>
+                <span className="text-gray-500">Model:</span>
+                <span className="text-purple-400 font-medium" title={vizData.meta.embedder_model}>
+                  {vizData.meta.embedder_model.includes('/') 
+                    ? vizData.meta.embedder_model.split('/').pop() 
+                    : vizData.meta.embedder_model}
+                </span>
+              </>
+            )}
+            {vizData.meta.original_dim > 0 && (
+              <>
+                <span className="text-gray-500">Dimensions:</span>
+                <span>{vizData.meta.original_dim}</span>
+              </>
+            )}
             <span className="text-gray-500">Total:</span>
             <span>{vizData.meta.total_thoughts}</span>
             <span className="text-gray-500">Embedded:</span>

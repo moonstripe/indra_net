@@ -524,6 +524,9 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
     
     const originalDim = embeddings.length > 0 ? embeddings[0].length : 0;
     
+    // Extract embedder model from first embedded thought's attrs
+    const embedderModel = thoughtsWithEmbeddings.find(t => t.embedderModel)?.embedderModel ?? null;
+    
     const vizData = {
       thoughts: vizThoughts,
       commits: vizCommits,
@@ -533,6 +536,7 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
         reduction_method: embeddings.length >= 4 ? 'pca' : (embeddings.length > 0 ? 'simple' : 'none'),
         original_dim: originalDim,
         variance_explained: pcaResult.varianceExplained,
+        ...(embedderModel ? { embedder_model: embedderModel } : {}),
       },
     };
     

@@ -47,6 +47,7 @@ export interface ParsedThought {
   content: string;
   thoughtType?: string;
   embedding?: number[];
+  embedderModel?: string;
   createdAt: number;
   modifiedAt: number;
 }
@@ -193,8 +194,9 @@ function parseThought(data: Uint8Array, _hash: string): ParsedThought | null {
     const thoughtType = reader.readOptionString();
     const embedding = reader.readOptionF32Vec();
     
-    // Skip attrs (HashMap) - complex to parse, not needed for viz
-    reader.skipHashMap();
+    // Read attrs HashMap to extract embedder_model
+    const attrs = reader.readStringHashMap();
+    const embedderModel = attrs.get('embedder_model') ?? undefined;
     
     const createdAt = reader.readU64();
     const modifiedAt = reader.readU64();
@@ -204,6 +206,7 @@ function parseThought(data: Uint8Array, _hash: string): ParsedThought | null {
       content,
       thoughtType: thoughtType ?? undefined,
       embedding: embedding ?? undefined,
+      embedderModel,
       createdAt: Number(createdAt),
       modifiedAt: Number(modifiedAt),
     };
@@ -322,6 +325,67 @@ class BincodeReader {
       // For simplicity, we read until we find the next valid structure
       // This is a hack - proper solution would be to fully parse JSON values
       this.skipJsonValue();
+    }
+  }
+  
+  /**
+   * Read a HashMap<String, serde_json::Value> and extract string values.
+   * Returns a Map of key -> string value (non-string values are skipped).
+   */
+  readStringHashMap(): Map<string, string> {
+    const result = new Map<string, string>();
+    const len = Number(this.readU64());
+    for (let i = 0; i < len; i++) {
+      const key = this.readString();
+      const value = this.readJsonValue();
+      if (typeof value === 'string') {
+        result.set(key, value);
+      }
+    }
+    return result;
+  }
+  
+  /**
+   * Read a serde_json::Value and return it as a JS value (string, number, bool, null).
+   * Complex values (arrays, objects) are skipped and return undefined.
+   */
+  readJsonValue(): string | number | boolean | null | undefined {
+    const tag = this.view.getUint32(this.pos, true);
+    this.pos += 4;
+    
+    switch (tag) {
+      case 0: // Null
+        return null;
+      case 1: // Bool
+        const b = this.data[this.pos];
+        this.pos += 1;
+        return b !== 0;
+      case 2: // Number
+        this.pos += 8;
+        return undefined; // complex json_number, skip
+      case 3: { // String
+        const len = Number(this.readU64());
+        const bytes = this.readBytes(len);
+        return new TextDecoder().decode(bytes);
+      }
+      case 4: { // Array - skip
+        const arrLen = Number(this.readU64());
+        for (let i = 0; i < arrLen; i++) {
+          this.readJsonValue();
+        }
+        return undefined;
+      }
+      case 5: { // Object - skip
+        const objLen = Number(this.readU64());
+        for (let i = 0; i < objLen; i++) {
+          const keyLen = Number(this.readU64());
+          this.pos += keyLen;
+          this.readJsonValue();
+        }
+        return undefined;
+      }
+      default:
+        return undefined;
     }
   }
   

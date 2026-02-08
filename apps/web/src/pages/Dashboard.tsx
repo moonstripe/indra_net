@@ -14,10 +14,6 @@ interface IndraBase {
   updated_at: string
 }
 
-interface DashboardActivity {
-  dates: string[]
-}
-
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const [bases, setBases] = useState<IndraBase[]>([])

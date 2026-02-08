@@ -104,7 +104,6 @@ export default function Dashboard() {
           <ActivityHeatmap
             dates={activityDates}
             label="Your Activity"
-            weeks={20}
           />
         </div>
       )}
@@ -139,7 +138,7 @@ export default function Dashboard() {
             <Link
               key={base.id}
               to={`/bases/${base.id}`}
-              className="bg-gray-900/50 border border-gray-800 rounded-lg p-6 hover:border-purple-500/50 transition-colors group"
+              className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 hover:border-purple-500/50 transition-colors group"
             >
               <div className="flex items-start justify-between mb-2">
                 <h3 className="font-semibold text-lg group-hover:text-purple-400 transition-colors">
@@ -154,15 +153,26 @@ export default function Dashboard() {
                 </span>
               </div>
               {base.description && (
-                <p className="text-gray-400 text-sm mb-4 line-clamp-2">
+                <p className="text-gray-400 text-sm mb-3 line-clamp-2">
                   {base.description}
                 </p>
               )}
+              
+              {/* Mini activity heatmap */}
+              <div className="mb-3">
+                <ActivityHeatmap
+                  dates={[base.updated_at]}
+                  compact
+                  showLegend={false}
+                  showDayLabels={false}
+                />
+              </div>
+              
               <div className="flex gap-4 text-sm text-gray-500">
                 <span>{base.thought_count} thoughts</span>
                 <span>{formatBytes(base.size_bytes)}</span>
               </div>
-              <div className="text-xs text-gray-600 mt-2">
+              <div className="text-xs text-gray-600 mt-1">
                 Updated {formatRelativeTime(base.updated_at)}
               </div>
             </Link>

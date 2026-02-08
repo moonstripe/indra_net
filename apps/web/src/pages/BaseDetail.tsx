@@ -297,12 +297,38 @@ export default function BaseDetail() {
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <StatCard label="Thoughts" value={base.thought_count.toLocaleString()} />
-        <StatCard label="Size" value={formatBytes(base.size_bytes)} />
-        <StatCard label="Created" value={formatDate(base.created_at)} />
-        <StatCard label="Updated" value={formatRelativeTime(base.updated_at)} />
+      {/* Stats + Activity Card */}
+      <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 mb-8">
+        <div className="flex flex-col lg:flex-row lg:items-start gap-6">
+          {/* Stats grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 flex-1">
+            <StatCard label="Thoughts" value={base.thought_count.toLocaleString()} />
+            <StatCard label="Size" value={formatBytes(base.size_bytes)} />
+            <StatCard label="Created" value={formatDate(base.created_at)} />
+            <StatCard label="Updated" value={formatRelativeTime(base.updated_at)} />
+          </div>
+          
+          {/* Activity Heatmap - max 1/4 width */}
+          {(thoughts.length > 0 || commits.length > 0) && (
+            <div className="lg:w-1/4 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-sm font-medium text-gray-400">Activity</h4>
+                <span className="text-xs text-gray-500">
+                  {thoughts.length + commits.length} events
+                </span>
+              </div>
+              <ActivityHeatmap
+                dates={[
+                  ...thoughts.map(t => t.committed_at || t.created_at),
+                  ...commits.map(c => c.timestamp),
+                ]}
+                compact
+                showLegend={false}
+                showDayLabels={false}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -330,17 +356,6 @@ export default function BaseDetail() {
       {/* Tab Content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
-          {/* Activity Heatmap */}
-          {(thoughts.length > 0 || commits.length > 0) && (
-            <ActivityHeatmap
-              dates={[
-                ...thoughts.map(t => t.committed_at || t.created_at),
-                ...commits.map(c => c.timestamp),
-              ]}
-              label="Thought Activity"
-            />
-          )}
-
           {thoughts.length === 0 ? (
             /* Quick Start - shown when no thoughts exist */
             <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
@@ -662,9 +677,9 @@ export default function BaseDetail() {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
-      <p className="text-gray-400 text-sm">{label}</p>
-      <p className="text-xl font-semibold mt-1">{value}</p>
+    <div>
+      <p className="text-gray-400 text-sm mb-4">{label}</p>
+      <p className="text-xl font-semibold">{value}</p>
     </div>
   )
 }

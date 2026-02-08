@@ -272,6 +272,24 @@ basesRoutes.post('/:id/push', requireAuth, async (c) => {
     ).bind(body.byteLength, id).run();
   }
   
+  // Invalidate cached viz data so it gets recomputed on next request
+  try {
+    await c.env.STORAGE.delete(`${base.storage_key}.viz.json`);
+  } catch {
+    // Ignore deletion errors
+  }
+  
+  // Try to parse the file and update thought_count
+  try {
+    const { parseIndraFile } = await import('../lib/indra-parser');
+    const parsed = await parseIndraFile(body);
+    await c.env.DB.prepare(
+      `UPDATE indra_bases SET thought_count = ? WHERE id = ?`
+    ).bind(parsed.thoughts.length, id).run();
+  } catch {
+    // Non-critical - viz endpoint will update it later
+  }
+  
   // Log sync
   await c.env.DB.prepare(
     `INSERT INTO sync_log (id, base_id, action, size_bytes) VALUES (?, ?, 'push', ?)`
@@ -662,12 +680,79 @@ basesRoutes.get('/:id/thoughts', optionalAuth, async (c) => {
   const cached = await c.env.STORAGE.get(vizKey);
   
   if (!cached) {
-    // Viz data not cached yet - trigger computation
-    // Note: In a production system, this would be a separate endpoint call
-    // For now, return empty and let client call /viz first
+    // Viz data not cached yet - try to compute it now from the .indra file
+    try {
+      const indraFile = await c.env.STORAGE.get(base.storage_key);
+      if (indraFile) {
+        const { parseIndraFile } = await import('../lib/indra-parser');
+        const { pca3d } = await import('../lib/pca');
+        
+        const buffer = await indraFile.arrayBuffer();
+        const parsed = await parseIndraFile(buffer);
+        
+        if (parsed.thoughts.length > 0) {
+          // Compute viz and cache it
+          const thoughtsWithEmbeddings = parsed.thoughts.filter(t => t.embedding && t.embedding.length > 0);
+          const embeddings = thoughtsWithEmbeddings.map(t => t.embedding!);
+          const pcaResult = embeddings.length > 0 ? pca3d(embeddings) : { positions: [], varianceExplained: [0, 0, 0] as [number, number, number], mean: [] };
+          
+          const vizThoughts = [
+            ...thoughtsWithEmbeddings.map((t, i) => ({
+              id: t.id,
+              content: t.content,
+              thought_type: t.thoughtType,
+              position: pcaResult.positions[i] as [number, number, number],
+              has_embedding: true,
+              created_at: t.createdAt,
+            })),
+            ...parsed.thoughts.filter(t => !t.embedding || t.embedding.length === 0).map(t => ({
+              id: t.id,
+              content: t.content,
+              thought_type: t.thoughtType,
+              position: [0.5, 0.5, 0.5] as [number, number, number],
+              has_embedding: false,
+              created_at: t.createdAt,
+            })),
+          ];
+          
+          const vizData = {
+            thoughts: vizThoughts,
+            commits: parsed.commits.map(c => ({ hash: c.hash, message: c.message, author: c.author, timestamp: c.timestamp, parents: c.parents })),
+            meta: {
+              total_thoughts: parsed.thoughts.length,
+              embedded_thoughts: thoughtsWithEmbeddings.length,
+              reduction_method: embeddings.length >= 4 ? 'pca' : (embeddings.length > 0 ? 'simple' : 'none'),
+              original_dim: embeddings.length > 0 ? embeddings[0].length : 0,
+              variance_explained: pcaResult.varianceExplained,
+            },
+          };
+          
+          // Cache it
+          await c.env.STORAGE.put(vizKey, JSON.stringify(vizData), {
+            httpMetadata: { contentType: 'application/json' },
+          });
+          
+          // Return thoughts
+          const thoughts = vizThoughts.slice(0, limit).map(t => ({
+            id: t.id,
+            thought_id: t.id,
+            content: t.content,
+            thought_type: t.thought_type,
+            has_embedding: t.has_embedding,
+            created_at: new Date(t.created_at).toISOString(),
+            committed_at: new Date(t.created_at).toISOString(),
+          }));
+          
+          return c.json({ thoughts });
+        }
+      }
+    } catch (e) {
+      console.error('Failed to compute thoughts on-demand:', e);
+    }
+    
     return c.json({ 
       thoughts: [],
-      message: 'No thoughts data cached. Call GET /bases/:id/viz first to compute.',
+      message: 'No thoughts data available yet.',
     });
   }
   

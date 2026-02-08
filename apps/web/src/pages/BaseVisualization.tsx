@@ -44,10 +44,11 @@ export default function BaseVisualization() {
   const thoughtMapRef = useRef<Map<string, VizThought>>(new Map())
 
   useEffect(() => {
-    if (id) {
+    // Wait for auth to finish before fetching - user may be null (logged out) but authLoading must be false
+    if (id && !authLoading) {
       fetchBaseAndViz()
     }
-  }, [id])
+  }, [id, authLoading])
 
   useEffect(() => {
     // When renderer is ready and we have data, add all embeddings

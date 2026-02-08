@@ -400,18 +400,21 @@ basesRoutes.get('/:id/status', optionalAuth, async (c) => {
 /**
  * Get visualization data for a base (public bases accessible without auth)
  * 
- * This endpoint returns pre-computed 3D positions for all thoughts in the base.
- * The positions are computed using PCA on the embedding vectors.
+ * This endpoint computes 3D positions for all thoughts in the base on-demand
+ * by parsing the .indra file and applying PCA to the embeddings.
+ * Results are cached in R2 for subsequent requests.
  * 
  * Response format matches indra_db VizExport:
  * {
  *   thoughts: [{ id, content, thought_type?, position: [x,y,z], has_embedding, created_at }],
+ *   commits: [{ hash, message, author, timestamp, parents }],
  *   meta: { total_thoughts, embedded_thoughts, reduction_method, original_dim, variance_explained? }
  * }
  */
 basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
   const user = c.get('user') as User | undefined;
   const id = c.req.param('id');
+  const forceRecompute = c.req.query('recompute') === 'true';
   
   const base = await c.env.DB.prepare(
     'SELECT * FROM indra_bases WHERE id = ?'
@@ -428,28 +431,122 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
   
   // Check if we have cached viz data in R2
   const vizKey = `${base.storage_key}.viz.json`;
-  const cached = await c.env.STORAGE.get(vizKey);
   
-  if (cached) {
-    // Return cached visualization
-    const vizData = await cached.json();
-    return c.json(vizData);
+  if (!forceRecompute) {
+    const cached = await c.env.STORAGE.get(vizKey);
+    if (cached) {
+      const vizData = await cached.json();
+      return c.json(vizData);
+    }
   }
   
-  // No cached data - return empty viz export
-  // The CLI should push viz data alongside the .indra file
-  return c.json({
-    thoughts: [],
-    meta: {
-      total_thoughts: base.thought_count || 0,
-      embedded_thoughts: 0,
-      reduction_method: 'none',
-      original_dim: 0,
-      variance_explained: null,
-    },
-    cached: false,
-    message: 'No visualization data. Push with --viz flag to generate.',
-  });
+  // No cached data - compute from .indra file
+  const indraFile = await c.env.STORAGE.get(base.storage_key);
+  
+  if (!indraFile) {
+    return c.json({
+      thoughts: [],
+      commits: [],
+      meta: {
+        total_thoughts: 0,
+        embedded_thoughts: 0,
+        reduction_method: 'none',
+        original_dim: 0,
+        variance_explained: null,
+      },
+      cached: false,
+      message: 'No .indra file found. Push your database first.',
+    });
+  }
+  
+  try {
+    // Parse the .indra file
+    const { parseIndraFile } = await import('../lib/indra-parser');
+    const { pca3d } = await import('../lib/pca');
+    
+    const buffer = await indraFile.arrayBuffer();
+    const parsed = await parseIndraFile(buffer);
+    
+    // Separate thoughts with and without embeddings
+    const thoughtsWithEmbeddings = parsed.thoughts.filter(t => t.embedding && t.embedding.length > 0);
+    const thoughtsWithoutEmbeddings = parsed.thoughts.filter(t => !t.embedding || t.embedding.length === 0);
+    
+    // Compute PCA on embeddings
+    const embeddings = thoughtsWithEmbeddings.map(t => t.embedding!);
+    const pcaResult = embeddings.length > 0 ? pca3d(embeddings) : { positions: [], varianceExplained: [0, 0, 0] as [number, number, number], mean: [] };
+    
+    // Build viz thoughts
+    const vizThoughts = [
+      ...thoughtsWithEmbeddings.map((t, i) => ({
+        id: t.id,
+        content: t.content,
+        thought_type: t.thoughtType,
+        position: pcaResult.positions[i] as [number, number, number],
+        has_embedding: true,
+        created_at: t.createdAt,
+      })),
+      ...thoughtsWithoutEmbeddings.map(t => ({
+        id: t.id,
+        content: t.content,
+        thought_type: t.thoughtType,
+        position: [0.5, 0.5, 0.5] as [number, number, number],
+        has_embedding: false,
+        created_at: t.createdAt,
+      })),
+    ];
+    
+    // Build viz commits
+    const vizCommits = parsed.commits.map(c => ({
+      hash: c.hash,
+      message: c.message,
+      author: c.author,
+      timestamp: c.timestamp,
+      parents: c.parents,
+    }));
+    
+    const originalDim = embeddings.length > 0 ? embeddings[0].length : 0;
+    
+    const vizData = {
+      thoughts: vizThoughts,
+      commits: vizCommits,
+      meta: {
+        total_thoughts: parsed.thoughts.length,
+        embedded_thoughts: thoughtsWithEmbeddings.length,
+        reduction_method: embeddings.length >= 4 ? 'pca' : (embeddings.length > 0 ? 'simple' : 'none'),
+        original_dim: originalDim,
+        variance_explained: pcaResult.varianceExplained,
+      },
+    };
+    
+    // Cache the result in R2
+    await c.env.STORAGE.put(vizKey, JSON.stringify(vizData), {
+      httpMetadata: {
+        contentType: 'application/json',
+      },
+    });
+    
+    // Update thought count in DB
+    await c.env.DB.prepare(
+      `UPDATE indra_bases SET thought_count = ?, updated_at = datetime("now") WHERE id = ?`
+    ).bind(parsed.thoughts.length, id).run();
+    
+    return c.json(vizData);
+    
+  } catch (e) {
+    console.error('Failed to compute viz:', e);
+    return c.json({
+      thoughts: [],
+      commits: [],
+      meta: {
+        total_thoughts: 0,
+        embedded_thoughts: 0,
+        reduction_method: 'error',
+        original_dim: 0,
+        variance_explained: null,
+      },
+      error: `Failed to parse .indra file: ${e instanceof Error ? e.message : 'Unknown error'}`,
+    }, 500);
+  }
 });
 
 /**
@@ -481,9 +578,26 @@ basesRoutes.get('/:id/commits', optionalAuth, async (c) => {
   const cached = await c.env.STORAGE.get(vizKey);
   
   if (!cached) {
+    // Try to compute viz data first
+    const vizResponse = await fetch(`${c.req.url.replace('/commits', '/viz')}`);
+    if (vizResponse.ok) {
+      const vizData = await vizResponse.json() as { commits?: Array<any> };
+      if (vizData.commits && vizData.commits.length > 0) {
+        return c.json({ 
+          commits: vizData.commits.slice(0, limit).map(commit => ({
+            id: commit.hash,
+            hash: commit.hash,
+            message: commit.message,
+            author: commit.author,
+            timestamp: new Date(commit.timestamp).toISOString(),
+            parent_hash: commit.parents[0] || null,
+          }))
+        });
+      }
+    }
     return c.json({ 
       commits: [],
-      message: 'No commit data. Push with --viz flag to populate.',
+      message: 'No commit data available.',
     });
   }
   
@@ -548,9 +662,12 @@ basesRoutes.get('/:id/thoughts', optionalAuth, async (c) => {
   const cached = await c.env.STORAGE.get(vizKey);
   
   if (!cached) {
+    // Viz data not cached yet - trigger computation
+    // Note: In a production system, this would be a separate endpoint call
+    // For now, return empty and let client call /viz first
     return c.json({ 
       thoughts: [],
-      message: 'No thoughts data. Push with --viz flag to populate.',
+      message: 'No thoughts data cached. Call GET /bases/:id/viz first to compute.',
     });
   }
   

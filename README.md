@@ -14,6 +14,13 @@ indra_net/
 └── turbo.json         # Turborepo config
 ```
 
+## Key Features
+
+- **Visualization**: Server-side PCA reduces embeddings to 3D positions
+- **Sync**: Push/pull `.indra` files from CLI
+- **OAuth**: GitHub and Google authentication
+- **Analytics**: Thought patterns, activity timelines (coming soon)
+
 ## Tech Stack
 
 | Layer | Technology | Why |
@@ -119,6 +126,11 @@ ApiKey
 - `POST /bases/:id/push` - Upload .indra file
 - `GET /bases/:id/pull` - Download .indra file
 - `GET /bases/:id/status` - Get remote status (HEAD hash, etc.)
+
+### Visualization
+- `GET /bases/:id/viz` - Get 3D positions (computed server-side via PCA)
+- `GET /bases/:id/commits` - Get commit history
+- `GET /bases/:id/thoughts` - Get thoughts list
 
 ### Analytics (Phase 4)
 - `GET /bases/:id/thoughts` - List thoughts (paginated)

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { apiUrl } from '../lib/api'
 
 export default function AuthCallback() {
   const { provider } = useParams<{ provider: 'github' | 'google' }>()
@@ -25,7 +26,7 @@ export default function AuthCallback() {
 
     const exchangeCode = async () => {
       try {
-        const res = await fetch(`/api/auth/${provider}`, {
+        const res = await fetch(apiUrl(`/api/auth/${provider}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',

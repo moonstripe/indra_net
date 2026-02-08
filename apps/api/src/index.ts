@@ -18,7 +18,7 @@ const app = new Hono<{ Bindings: Env }>();
 // Middleware
 app.use('*', logger());
 app.use('*', cors({
-  origin: ['http://localhost:5173', 'https://indra.net'], // TODO: Configure per environment
+  origin: ['http://localhost:5173', 'https://indra-net-web.pages.dev', 'https://indra.net'],
   credentials: true,
 }));
 

@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
+import { apiUrl } from '../lib/api'
 
 export interface User {
   id: string
@@ -27,7 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = async () => {
     try {
-      const res = await fetch('/api/auth/me', { credentials: 'include' })
+      const res = await fetch(apiUrl('/api/auth/me'), { credentials: 'include' })
       const data = await res.json()
       setUser(data.user)
     } catch {
@@ -57,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
-    await fetch('/api/auth/logout', { 
+    await fetch(apiUrl('/api/auth/logout'), { 
       method: 'POST',
       credentials: 'include' 
     })

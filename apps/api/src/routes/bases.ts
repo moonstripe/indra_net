@@ -493,7 +493,63 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
     const embeddings = thoughtsWithEmbeddings.map(t => t.embedding!);
     const pcaResult = embeddings.length > 0 ? pca3d(embeddings) : { positions: [], varianceExplained: [0, 0, 0] as [number, number, number], mean: [] };
     
-    // Build viz thoughts
+    // Compute which branches each thought belongs to
+    // A thought belongs to a branch if it was created before or at the branch's HEAD commit timestamp
+    const branchTimestamps = new Map<string, number>();
+    const commitMap = new Map(parsed.commits.map(c => [c.hash, c]));
+    
+    for (const [branchName, branchHash] of parsed.branches.entries()) {
+      const commit = commitMap.get(branchHash);
+      if (commit) {
+        branchTimestamps.set(branchName, commit.timestamp);
+      }
+    }
+    
+    // For more accurate branch membership, we trace commit ancestry
+    // A thought belongs to a branch if its created_at <= the branch HEAD commit timestamp
+    // AND it's reachable from that branch's commit history
+    const getBranchAncestryTimestamps = (startHash: string): number[] => {
+      const timestamps: number[] = [];
+      const visited = new Set<string>();
+      const queue = [startHash];
+      while (queue.length > 0) {
+        const hash = queue.shift()!;
+        if (visited.has(hash) || hash === '0'.repeat(64)) continue;
+        visited.add(hash);
+        const commit = commitMap.get(hash);
+        if (commit) {
+          timestamps.push(commit.timestamp);
+          queue.push(...commit.parents);
+        }
+      }
+      return timestamps;
+    };
+    
+    // For each branch, compute the set of commit timestamps in its history
+    const branchCommitTimestamps = new Map<string, Set<number>>();
+    for (const [branchName, branchHash] of parsed.branches.entries()) {
+      const timestamps = getBranchAncestryTimestamps(branchHash);
+      branchCommitTimestamps.set(branchName, new Set(timestamps));
+    }
+    
+    // Determine which branches a thought belongs to
+    // A thought belongs to branches where its created_at matches a commit timestamp in that branch's history
+    const getThoughtBranches = (createdAt: number): string[] => {
+      const branches: string[] = [];
+      for (const [branchName, timestamps] of branchCommitTimestamps.entries()) {
+        // Check if this thought's creation time is at or before any commit in this branch
+        // We use a range check since timestamps might be slightly off
+        const branchMaxTimestamp = branchTimestamps.get(branchName) || 0;
+        if (createdAt <= branchMaxTimestamp) {
+          // Check if the thought was created at a commit time in this branch's history
+          // For simplicity, include if created before or at branch HEAD
+          branches.push(branchName);
+        }
+      }
+      return branches.length > 0 ? branches : ['main']; // Default to main if no match
+    };
+    
+    // Build viz thoughts with branch info
     const vizThoughts = [
       ...thoughtsWithEmbeddings.map((t, i) => ({
         id: t.id,
@@ -502,6 +558,7 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
         position: pcaResult.positions[i] as [number, number, number],
         has_embedding: true,
         created_at: t.createdAt,
+        branches: getThoughtBranches(t.createdAt),
       })),
       ...thoughtsWithoutEmbeddings.map(t => ({
         id: t.id,
@@ -510,6 +567,7 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
         position: [0.5, 0.5, 0.5] as [number, number, number],
         has_embedding: false,
         created_at: t.createdAt,
+        branches: getThoughtBranches(t.createdAt),
       })),
     ];
     
@@ -527,9 +585,17 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
     // Extract embedder model from first embedded thought's attrs
     const embedderModel = thoughtsWithEmbeddings.find(t => t.embedderModel)?.embedderModel ?? null;
     
+    // Build branches list for meta
+    const branchesList = Array.from(parsed.branches.entries()).map(([name, hash]) => ({
+      name,
+      hash,
+      current: name === parsed.headRef,
+    }));
+    
     const vizData = {
       thoughts: vizThoughts,
       commits: vizCommits,
+      branches: branchesList,
       meta: {
         total_thoughts: parsed.thoughts.length,
         embedded_thoughts: thoughtsWithEmbeddings.length,

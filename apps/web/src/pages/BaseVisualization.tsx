@@ -11,6 +11,7 @@ interface VizThought {
   position: [number, number, number]
   has_embedding: boolean
   created_at: number
+  branches?: string[]
 }
 
 interface VizCommit {
@@ -30,9 +31,16 @@ interface VizMeta {
   embedder_model?: string
 }
 
+interface VizBranch {
+  name: string
+  hash: string
+  current: boolean
+}
+
 interface VizExport {
   thoughts: VizThought[]
   commits?: VizCommit[]
+  branches?: VizBranch[]
   meta: VizMeta
   cached?: boolean
   message?: string
@@ -55,6 +63,9 @@ export default function BaseVisualization() {
   const [timelineIndex, setTimelineIndex] = useState<number | null>(null) // null = show all
   const [isPlaying, setIsPlaying] = useState(false)
   
+  // Branch filter state
+  const [selectedBranch, setSelectedBranch] = useState<string | null>(null) // null = show all branches
+  
   const rendererRef = useRef<VectorRendererHandle>(null)
   // Map from renderer embedding ID to thought
   const thoughtMapRef = useRef<Map<string, VizThought>>(new Map())
@@ -71,7 +82,32 @@ export default function BaseVisualization() {
     return [...vizData.commits].sort((a, b) => a.timestamp - b.timestamp)
   }, [vizData?.commits])
   
-  // Filter thoughts based on timeline position
+  // Get unique branches from the data
+  const availableBranches = useMemo(() => {
+    if (!vizData?.branches) return []
+    return vizData.branches
+  }, [vizData?.branches])
+  
+  // Branch color map - consistent colors for branches
+  const branchColors = useMemo(() => {
+    const colors: Record<string, string> = {}
+    const palette = [
+      '#8b5cf6', // purple (main)
+      '#10b981', // emerald
+      '#f59e0b', // amber
+      '#ef4444', // red
+      '#3b82f6', // blue
+      '#ec4899', // pink
+      '#14b8a6', // teal
+      '#f97316', // orange
+    ]
+    availableBranches.forEach((branch, i) => {
+      colors[branch.name] = palette[i % palette.length]
+    })
+    return colors
+  }, [availableBranches])
+  
+  // Filter thoughts based on timeline position and branch filter
   const filteredThoughts = useMemo(() => {
     if (!vizData?.thoughts) return []
     
@@ -80,6 +116,11 @@ export default function BaseVisualization() {
     // If focused IDs are provided, only show those
     if (focusedIds) {
       thoughts = thoughts.filter(t => focusedIds.has(t.id))
+    }
+    
+    // Filter by selected branch
+    if (selectedBranch) {
+      thoughts = thoughts.filter(t => t.branches?.includes(selectedBranch))
     }
     
     // If timeline is active, filter by commit timestamp
@@ -92,7 +133,7 @@ export default function BaseVisualization() {
     }
     
     return thoughts
-  }, [vizData?.thoughts, focusedIds, timelineIndex, sortedCommits])
+  }, [vizData?.thoughts, focusedIds, selectedBranch, timelineIndex, sortedCommits])
 
   useEffect(() => {
     // Wait for auth to finish before fetching - user may be null (logged out) but authLoading must be false
@@ -294,12 +335,25 @@ export default function BaseVisualization() {
           <p className="text-gray-200 whitespace-pre-wrap text-sm leading-relaxed max-h-64 overflow-y-auto">
             {selectedThought.content}
           </p>
-          <div className="flex items-center gap-2 mt-3 pt-3 border-t border-gray-800">
+          <div className="flex items-center flex-wrap gap-2 mt-3 pt-3 border-t border-gray-800">
             {selectedThought.thought_type && (
               <span className="text-xs bg-purple-900/50 text-purple-400 px-2 py-1 rounded">
                 {selectedThought.thought_type}
               </span>
             )}
+            {selectedThought.branches && selectedThought.branches.map(branch => (
+              <span 
+                key={branch}
+                className="text-xs px-2 py-1 rounded"
+                style={{ 
+                  backgroundColor: `${branchColors[branch]}20`,
+                  color: branchColors[branch],
+                  border: `1px solid ${branchColors[branch]}40`
+                }}
+              >
+                {branch}
+              </span>
+            ))}
             <span className="text-xs text-gray-500">
               {new Date(selectedThought.created_at).toLocaleDateString()}
             </span>
@@ -461,6 +515,50 @@ export default function BaseVisualization() {
           >
             Clear
           </Link>
+        </div>
+      )}
+
+      {/* Branch filter legend */}
+      {availableBranches.length > 1 && vizData && vizData.thoughts.length > 0 && (
+        <div className="absolute top-20 left-4 z-10 bg-gray-900/90 border border-gray-800 rounded-lg p-3 backdrop-blur">
+          <div className="text-xs text-gray-400 mb-2 font-medium">Branches</div>
+          <div className="flex flex-col gap-1">
+            <button
+              onClick={() => setSelectedBranch(null)}
+              className={`flex items-center gap-2 px-2 py-1 rounded text-xs text-left transition-colors ${
+                selectedBranch === null
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <span className="w-3 h-3 rounded-full bg-gradient-to-r from-purple-500 via-emerald-500 to-amber-500" />
+              All branches
+            </button>
+            {availableBranches.map(branch => {
+              const count = vizData.thoughts.filter(t => t.branches?.includes(branch.name)).length
+              return (
+                <button
+                  key={branch.name}
+                  onClick={() => setSelectedBranch(selectedBranch === branch.name ? null : branch.name)}
+                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs text-left transition-colors ${
+                    selectedBranch === branch.name
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <span 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: branchColors[branch.name] }}
+                  />
+                  <span className="flex-1">{branch.name}</span>
+                  <span className="text-gray-500">{count}</span>
+                  {branch.current && (
+                    <span className="text-[10px] text-purple-400">HEAD</span>
+                  )}
+                </button>
+              )
+            })}
+          </div>
         </div>
       )}
 

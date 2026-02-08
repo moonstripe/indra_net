@@ -656,6 +656,194 @@ basesRoutes.get('/:id/commits', optionalAuth, async (c) => {
 });
 
 /**
+ * Get branches list for a base (public bases accessible without auth)
+ * 
+ * Returns all branches in the .indra file with their commit hashes.
+ */
+basesRoutes.get('/:id/branches', optionalAuth, async (c) => {
+  const user = c.get('user') as User | undefined;
+  const id = c.req.param('id');
+  
+  const base = await c.env.DB.prepare(
+    'SELECT * FROM indra_bases WHERE id = ?'
+  ).bind(id).first<IndraBase>();
+  
+  if (!base) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check access
+  if (base.visibility === 'private' && base.owner_id !== user?.id) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Parse .indra file to get branches
+  const indraFile = await c.env.STORAGE.get(base.storage_key);
+  
+  if (!indraFile) {
+    return c.json({ 
+      branches: [],
+      head: 'main',
+      message: 'No .indra file found. Push your database first.',
+    });
+  }
+  
+  try {
+    const { parseIndraFile } = await import('../lib/indra-parser');
+    const buffer = await indraFile.arrayBuffer();
+    const parsed = await parseIndraFile(buffer);
+    
+    // Convert branches Map to array format
+    const branches = Array.from(parsed.branches.entries()).map(([name, hash]) => ({
+      name,
+      hash,
+      current: name === parsed.headRef,
+    }));
+    
+    return c.json({
+      branches,
+      head: parsed.headRef,
+    });
+    
+  } catch (e) {
+    console.error('Failed to parse branches:', e);
+    return c.json({
+      branches: [],
+      head: 'main',
+      error: `Failed to parse .indra file: ${e instanceof Error ? e.message : 'Unknown error'}`,
+    }, 500);
+  }
+});
+
+/**
+ * Compare two branches (public bases accessible without auth)
+ * 
+ * Returns thoughts unique to each branch and common thoughts.
+ * Useful for "changed minds" analytics.
+ */
+basesRoutes.get('/:id/branches/compare', optionalAuth, async (c) => {
+  const user = c.get('user') as User | undefined;
+  const id = c.req.param('id');
+  const branch1 = c.req.query('branch1') || 'main';
+  const branch2 = c.req.query('branch2');
+  
+  if (!branch2) {
+    return c.json({ error: 'branch2 query parameter is required' }, 400);
+  }
+  
+  const base = await c.env.DB.prepare(
+    'SELECT * FROM indra_bases WHERE id = ?'
+  ).bind(id).first<IndraBase>();
+  
+  if (!base) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check access
+  if (base.visibility === 'private' && base.owner_id !== user?.id) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Parse .indra file
+  const indraFile = await c.env.STORAGE.get(base.storage_key);
+  
+  if (!indraFile) {
+    return c.json({ error: 'No .indra file found' }, 404);
+  }
+  
+  try {
+    const { parseIndraFile } = await import('../lib/indra-parser');
+    const buffer = await indraFile.arrayBuffer();
+    const parsed = await parseIndraFile(buffer);
+    
+    // Get commit hashes for both branches
+    const hash1 = parsed.branches.get(branch1);
+    const hash2 = parsed.branches.get(branch2);
+    
+    if (!hash1) {
+      return c.json({ error: `Branch '${branch1}' not found` }, 404);
+    }
+    if (!hash2) {
+      return c.json({ error: `Branch '${branch2}' not found` }, 404);
+    }
+    
+    // Build commit ancestry for each branch
+    const commitMap = new Map(parsed.commits.map(c => [c.hash, c]));
+    
+    const getAncestrySet = (startHash: string): Set<string> => {
+      const ancestry = new Set<string>();
+      const queue = [startHash];
+      while (queue.length > 0) {
+        const hash = queue.shift()!;
+        if (ancestry.has(hash) || hash === '0'.repeat(64)) continue;
+        ancestry.add(hash);
+        const commit = commitMap.get(hash);
+        if (commit) {
+          queue.push(...commit.parents);
+        }
+      }
+      return ancestry;
+    };
+    
+    const ancestry1 = getAncestrySet(hash1);
+    const ancestry2 = getAncestrySet(hash2);
+    
+    // Find common ancestor (commits in both ancestries)
+    const commonCommits = new Set([...ancestry1].filter(h => ancestry2.has(h)));
+    
+    // Commits unique to each branch
+    const uniqueToB1 = [...ancestry1].filter(h => !ancestry2.has(h));
+    const uniqueToB2 = [...ancestry2].filter(h => !ancestry1.has(h));
+    
+    // For a proper comparison, we'd need to track which thoughts were added in which commits
+    // For now, we'll return commit-level comparison
+    const formatCommit = (hash: string) => {
+      const commit = commitMap.get(hash);
+      return commit ? {
+        hash: commit.hash,
+        message: commit.message,
+        author: commit.author,
+        timestamp: commit.timestamp,
+      } : { hash, message: 'Unknown', author: 'Unknown', timestamp: 0 };
+    };
+    
+    return c.json({
+      branch1: {
+        name: branch1,
+        hash: hash1,
+        uniqueCommits: uniqueToB1.map(formatCommit),
+        totalCommits: ancestry1.size,
+      },
+      branch2: {
+        name: branch2,
+        hash: hash2,
+        uniqueCommits: uniqueToB2.map(formatCommit),
+        totalCommits: ancestry2.size,
+      },
+      commonAncestor: commonCommits.size > 0 ? {
+        count: commonCommits.size,
+        // Find the most recent common commit
+        latestCommon: [...commonCommits]
+          .map(h => commitMap.get(h))
+          .filter(Boolean)
+          .sort((a, b) => b!.timestamp - a!.timestamp)[0] ?? null,
+      } : null,
+      divergence: {
+        branch1UniqueCount: uniqueToB1.length,
+        branch2UniqueCount: uniqueToB2.length,
+        commonCount: commonCommits.size,
+      },
+    });
+    
+  } catch (e) {
+    console.error('Failed to compare branches:', e);
+    return c.json({
+      error: `Failed to parse .indra file: ${e instanceof Error ? e.message : 'Unknown error'}`,
+    }, 500);
+  }
+});
+
+/**
  * Get thoughts list for a base (public bases accessible without auth)
  * 
  * This reads from the viz data which contains thought content.

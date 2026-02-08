@@ -33,7 +33,13 @@ interface Commit {
   parent_hash?: string
 }
 
-type Tab = 'overview' | 'thoughts' | 'history' | 'settings'
+interface Branch {
+  name: string
+  hash: string
+  current: boolean
+}
+
+type Tab = 'overview' | 'thoughts' | 'history' | 'branches' | 'settings'
 
 export default function BaseDetail() {
   const { id } = useParams<{ id: string }>()
@@ -43,6 +49,7 @@ export default function BaseDetail() {
   const [base, setBase] = useState<IndraBase | null>(null)
   const [thoughts, setThoughts] = useState<Thought[]>([])
   const [commits, setCommits] = useState<Commit[]>([])
+  const [branches, setBranches] = useState<Branch[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [activeTab, setActiveTab] = useState<Tab>('overview')
@@ -81,6 +88,9 @@ export default function BaseDetail() {
     }
     if (base && (activeTab === 'history' || activeTab === 'overview')) {
       fetchCommits()
+    }
+    if (base && activeTab === 'branches') {
+      fetchBranches()
     }
   }, [base, activeTab])
 
@@ -121,6 +131,16 @@ export default function BaseDetail() {
       setCommits(data.commits || [])
     } catch (err) {
       console.error('Failed to fetch commits:', err)
+    }
+  }
+
+  const fetchBranches = async () => {
+    try {
+      const res = await apiFetch(`/api/bases/${id}/branches`)
+      const data = await res.json()
+      setBranches(data.branches || [])
+    } catch (err) {
+      console.error('Failed to fetch branches:', err)
     }
   }
 
@@ -334,7 +354,7 @@ export default function BaseDetail() {
       {/* Tabs */}
       <div className="border-b border-gray-800 mb-6">
         <nav className="flex gap-6">
-          {(['overview', 'thoughts', 'history', 'settings'] as Tab[]).map((tab) => (
+          {(['overview', 'thoughts', 'history', 'branches', 'settings'] as Tab[]).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -598,6 +618,53 @@ export default function BaseDetail() {
         </div>
       )}
 
+      {activeTab === 'branches' && (
+        <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
+          <h3 className="font-semibold mb-4">Branches</h3>
+          
+          {branches.length === 0 ? (
+            <p className="text-center text-gray-500 py-8">
+              No branches found. Push your database to see branches.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {branches.map((branch) => (
+                <div 
+                  key={branch.name}
+                  className={`flex items-center justify-between p-4 rounded-lg border ${
+                    branch.current 
+                      ? 'bg-purple-900/20 border-purple-800/50' 
+                      : 'bg-gray-900/30 border-gray-800'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    {branch.current && (
+                      <span className="text-xs bg-purple-600 px-2 py-0.5 rounded">HEAD</span>
+                    )}
+                    <span className={`font-medium ${branch.current ? 'text-purple-400' : 'text-gray-300'}`}>
+                      {branch.name}
+                    </span>
+                  </div>
+                  <code className="text-sm font-mono text-gray-500">
+                    {branch.hash.slice(0, 8)}
+                  </code>
+                </div>
+              ))}
+            </div>
+          )}
+          
+          {branches.length >= 2 && (
+            <div className="mt-6 pt-6 border-t border-gray-800">
+              <h4 className="font-medium mb-3 text-gray-400">Compare Branches</h4>
+              <p className="text-sm text-gray-500 mb-4">
+                Compare two branches to see how thoughts have diverged - useful for tracking "changed minds".
+              </p>
+              <BranchCompare baseId={id!} branches={branches} />
+            </div>
+          )}
+        </div>
+      )}
+
       {activeTab === 'settings' && (
         <div className="space-y-6 max-w-2xl">
           {/* Metadata */}
@@ -713,4 +780,175 @@ function formatRelativeTime(dateStr: string): string {
   if (diffHours < 24) return `${diffHours}h ago`
   if (diffDays < 7) return `${diffDays}d ago`
   return date.toLocaleDateString()
+}
+
+interface BranchCompareProps {
+  baseId: string
+  branches: Branch[]
+}
+
+interface ComparisonResult {
+  branch1: {
+    name: string
+    hash: string
+    uniqueCommits: Array<{ hash: string; message: string; timestamp: number }>
+    totalCommits: number
+  }
+  branch2: {
+    name: string
+    hash: string
+    uniqueCommits: Array<{ hash: string; message: string; timestamp: number }>
+    totalCommits: number
+  }
+  commonAncestor: {
+    count: number
+    latestCommon: { hash: string; message: string; timestamp: number } | null
+  } | null
+  divergence: {
+    branch1UniqueCount: number
+    branch2UniqueCount: number
+    commonCount: number
+  }
+}
+
+function BranchCompare({ baseId, branches }: BranchCompareProps) {
+  const [branch1, setBranch1] = useState(branches[0]?.name || '')
+  const [branch2, setBranch2] = useState(branches[1]?.name || '')
+  const [comparison, setComparison] = useState<ComparisonResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const handleCompare = async () => {
+    if (!branch1 || !branch2 || branch1 === branch2) return
+    
+    setLoading(true)
+    setError('')
+    
+    try {
+      const res = await apiFetch(
+        `/api/bases/${baseId}/branches/compare?branch1=${encodeURIComponent(branch1)}&branch2=${encodeURIComponent(branch2)}`
+      )
+      const data = await res.json()
+      
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to compare branches')
+      }
+      
+      setComparison(data)
+    } catch (err: any) {
+      setError(err.message)
+      setComparison(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-4 items-end">
+        <div className="flex-1">
+          <label className="block text-xs text-gray-500 mb-1">Base Branch</label>
+          <select
+            value={branch1}
+            onChange={(e) => setBranch1(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
+          >
+            {branches.map(b => (
+              <option key={b.name} value={b.name}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <span className="text-gray-500 pb-2">vs</span>
+        <div className="flex-1">
+          <label className="block text-xs text-gray-500 mb-1">Compare Branch</label>
+          <select
+            value={branch2}
+            onChange={(e) => setBranch2(e.target.value)}
+            className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm"
+          >
+            {branches.map(b => (
+              <option key={b.name} value={b.name}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <button
+          onClick={handleCompare}
+          disabled={loading || branch1 === branch2}
+          className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
+        >
+          {loading ? 'Comparing...' : 'Compare'}
+        </button>
+      </div>
+
+      {error && (
+        <p className="text-red-400 text-sm">{error}</p>
+      )}
+
+      {comparison && (
+        <div className="mt-4 p-4 bg-gray-800/50 rounded-lg space-y-4">
+          <div className="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p className="text-2xl font-bold text-purple-400">{comparison.divergence.branch1UniqueCount}</p>
+              <p className="text-xs text-gray-500">Unique to {comparison.branch1.name}</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-400">{comparison.divergence.commonCount}</p>
+              <p className="text-xs text-gray-500">Common commits</p>
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-blue-400">{comparison.divergence.branch2UniqueCount}</p>
+              <p className="text-xs text-gray-500">Unique to {comparison.branch2.name}</p>
+            </div>
+          </div>
+
+          {comparison.commonAncestor?.latestCommon && (
+            <div className="pt-4 border-t border-gray-700">
+              <p className="text-xs text-gray-500 mb-2">Fork Point</p>
+              <div className="flex items-center gap-2">
+                <code className="text-xs font-mono text-gray-400">
+                  {comparison.commonAncestor.latestCommon.hash.slice(0, 8)}
+                </code>
+                <span className="text-sm text-gray-300">
+                  {comparison.commonAncestor.latestCommon.message}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {(comparison.branch1.uniqueCommits.length > 0 || comparison.branch2.uniqueCommits.length > 0) && (
+            <div className="pt-4 border-t border-gray-700 grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Commits only in {comparison.branch1.name}</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {comparison.branch1.uniqueCommits.slice(0, 5).map(c => (
+                    <div key={c.hash} className="text-xs">
+                      <code className="text-purple-400">{c.hash.slice(0, 8)}</code>
+                      <span className="text-gray-400 ml-2">{c.message.slice(0, 30)}</span>
+                    </div>
+                  ))}
+                  {comparison.branch1.uniqueCommits.length > 5 && (
+                    <p className="text-xs text-gray-500">+{comparison.branch1.uniqueCommits.length - 5} more</p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-2">Commits only in {comparison.branch2.name}</p>
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {comparison.branch2.uniqueCommits.slice(0, 5).map(c => (
+                    <div key={c.hash} className="text-xs">
+                      <code className="text-blue-400">{c.hash.slice(0, 8)}</code>
+                      <span className="text-gray-400 ml-2">{c.message.slice(0, 30)}</span>
+                    </div>
+                  ))}
+                  {comparison.branch2.uniqueCommits.length > 5 && (
+                    <p className="text-xs text-gray-500">+{comparison.branch2.uniqueCommits.length - 5} more</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }

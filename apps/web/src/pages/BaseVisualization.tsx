@@ -100,6 +100,25 @@ export default function BaseVisualization() {
     return vizData.branches
   }, [vizData?.branches])
   
+  // Initialize branch from URL params
+  useEffect(() => {
+    const branchParam = searchParams.get('branch')
+    if (branchParam && availableBranches.some(b => b.name === branchParam)) {
+      setSelectedBranch(branchParam)
+    }
+  }, [searchParams, availableBranches])
+  
+  // Initialize timeline from URL params
+  useEffect(() => {
+    const commitParam = searchParams.get('commit')
+    if (commitParam && sortedCommits.length > 0) {
+      const idx = parseInt(commitParam)
+      if (!isNaN(idx) && idx >= 0 && idx < sortedCommits.length) {
+        setTimelineIndex(idx)
+      }
+    }
+  }, [searchParams, sortedCommits])
+  
   // Branch color map - consistent colors for branches
   const branchColors = useMemo(() => {
     const colors: Record<string, string> = {}
@@ -286,6 +305,31 @@ export default function BaseVisualization() {
     rendererRef.current?.clearSelection()
   }
 
+  // Screenshot function - captures the canvas
+  const handleScreenshot = useCallback(() => {
+    const canvas = document.getElementById('vector-canvas') as HTMLCanvasElement
+    if (!canvas) return
+    
+    // Create a link and trigger download
+    const link = document.createElement('a')
+    link.download = `${baseName || 'visualization'}-${Date.now()}.png`
+    link.href = canvas.toDataURL('image/png')
+    link.click()
+  }, [baseName])
+
+  // Copy shareable link to clipboard
+  const handleCopyLink = useCallback(() => {
+    const url = new URL(window.location.href)
+    // Add current filters to URL
+    if (selectedBranch) {
+      url.searchParams.set('branch', selectedBranch)
+    }
+    if (timelineIndex !== null) {
+      url.searchParams.set('commit', timelineIndex.toString())
+    }
+    navigator.clipboard.writeText(url.toString())
+  }, [selectedBranch, timelineIndex])
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
@@ -333,8 +377,32 @@ export default function BaseVisualization() {
             </span>
           </div>
           
-          <div className="text-sm text-gray-400">
-            {filteredThoughts.filter(t => t.has_embedding).length} of {vizData?.meta.embedded_thoughts || 0} thoughts • {vizData?.meta.reduction_method || 'none'}
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-400">
+              {filteredThoughts.filter(t => t.has_embedding).length} of {vizData?.meta.embedded_thoughts || 0} thoughts • {vizData?.meta.reduction_method || 'none'}
+            </span>
+            
+            {/* Export buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleScreenshot}
+                className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                title="Download screenshot"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+              </button>
+              <button
+                onClick={handleCopyLink}
+                className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                title="Copy shareable link"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                </svg>
+              </button>
+            </div>
           </div>
         </div>
       </div>

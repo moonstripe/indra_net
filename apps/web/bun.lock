@@ -250,7 +250,7 @@
 
     "@types/json-schema": ["@types/json-schema@7.0.15", "", {}, "sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA=="],
 
-    "@types/node": ["@types/node@24.10.11", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-/Af7O8r1frCVgOz0I62jWUtMohJ0/ZQU/ZoketltOJPZpnb17yoNc9BSoVuV9qlaIXJiPNOpsfq4ByFajSArNQ=="],
+    "@types/node": ["@types/node@24.10.12", "", { "dependencies": { "undici-types": "~7.16.0" } }, "sha512-68e+T28EbdmLSTkPgs3+UacC6rzmqrcWFPQs1C8mwJhI/r5Uxr0yEuQotczNRROd1gq30NGxee+fo0rSIxpyAw=="],
 
     "@types/react": ["@types/react@19.2.13", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-KkiJeU6VbYbUOp5ITMIc7kBfqlYkKA5KhEHVrGMmUUMt7NeaZg65ojdPk+FtNrBAOXNVM5QM72jnADjM+XVRAQ=="],
 
@@ -492,7 +492,7 @@
 
     "react-router-dom": ["react-router-dom@7.13.0", "", { "dependencies": { "react-router": "7.13.0" }, "peerDependencies": { "react": ">=18", "react-dom": ">=18" } }, "sha512-5CO/l5Yahi2SKC6rGZ+HDEjpjkGaG/ncEP7eWFTvFxbHP8yeeI0PxTDjimtpXYlR3b3i9/WIL4VJttPrESIf2g=="],
 
-    "react-vector-renderer": ["react-vector-renderer@file:../../../../react-vector-renderer", { "dependencies": { "@vitejs/plugin-react": "^5.0.1", "react": "^19.1.1", "react-dom": "^19.1.1", "vector-renderer": "../vector-renderer-wasm/pkg", "vector-renderer": "../vector-renderer-wasm/pkg", "vite": "^7.1.3" }, "devDependencies": { "@types/bun": "latest" }, "peerDependencies": { "typescript": "^5.9.2" } }],
+    "react-vector-renderer": ["react-vector-renderer@file:../../../../react-vector-renderer", { "dependencies": { "@vitejs/plugin-react": "^5.0.1", "react": "^19.1.1", "react-dom": "^19.1.1", "vector-renderer": "../vector-renderer-wasm/pkg", "vite": "^7.1.3" }, "devDependencies": { "@types/bun": "latest" }, "peerDependencies": { "typescript": "^5.9.2" } }],
 
     "resolve-from": ["resolve-from@4.0.0", "", {}, "sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g=="],
 
@@ -569,8 +569,6 @@
     "@typescript-eslint/typescript-estree/minimatch": ["minimatch@9.0.5", "", { "dependencies": { "brace-expansion": "^2.0.1" } }, "sha512-G6T0ZX48xgozx7587koeX9Ys2NYy6Gmv//P89sEte9V9whIapMNF4idKxnW2QtCcLiTWlb/wfCabAtAFWhhBow=="],
 
     "@typescript-eslint/typescript-estree/semver": ["semver@7.7.4", "", { "bin": { "semver": "bin/semver.js" } }, "sha512-vFKC2IEtQnVhpT78h1Yp8wzwrf8CM+MzKMHGJZfBtzhZNycRFnXsHk6E5TxIkkMsgNS7mdX3AGB7x2QM2di4lA=="],
-
-    "react-vector-renderer/vector-renderer": ["vector-renderer@file:../../../../vector-renderer-wasm/pkg", {}],
 
     "react-vector-renderer/vector-renderer": ["vector-renderer@file:../../../../vector-renderer-wasm/pkg", {}],
 

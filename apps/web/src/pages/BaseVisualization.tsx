@@ -786,8 +786,13 @@ export default function BaseVisualization() {
 
       {/* Instructions overlay - shown briefly */}
       {rendererReady && vizData && vizData.thoughts.length > 0 && !selectedThought && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-gray-500 text-sm pointer-events-none animate-pulse">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-gray-500 text-sm pointer-events-none animate-pulse hidden md:block">
           Click a point to see its content • Drag to rotate • Scroll to zoom
+        </div>
+      )}
+      {rendererReady && vizData && vizData.thoughts.length > 0 && !selectedThought && (
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 text-gray-500 text-sm pointer-events-none animate-pulse md:hidden">
+          Tap a point to see its content • Drag to rotate • Pinch to zoom
         </div>
       )}
     </div>

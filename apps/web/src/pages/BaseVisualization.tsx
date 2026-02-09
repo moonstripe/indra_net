@@ -46,11 +46,20 @@ interface VizBranch {
   current: boolean
 }
 
+interface VizCluster {
+  assignments: Record<string, number> // thought_id -> cluster_index
+  centroids: number[][] // [x, y, z] for each cluster
+  sizes: number[] // number of thoughts in each cluster
+  labels: string[] // label for each cluster (from representative thought)
+  k: number // number of clusters
+}
+
 interface VizExport {
   thoughts: VizThought[]
   edges?: VizEdge[]
   commits?: VizCommit[]
   branches?: VizBranch[]
+  clusters?: VizCluster | null
   meta: VizMeta
   cached?: boolean
   message?: string
@@ -75,6 +84,10 @@ export default function BaseVisualization() {
   
   // Branch filter state
   const [selectedBranch, setSelectedBranch] = useState<string | null>(null) // null = show all branches
+  
+  // Cluster filter state
+  const [selectedCluster, setSelectedCluster] = useState<number | null>(null) // null = show all clusters
+  const [showClusterLabels, setShowClusterLabels] = useState(true)
   
   const rendererRef = useRef<VectorRendererHandle>(null)
   // Map from renderer embedding ID to thought
@@ -138,7 +151,29 @@ export default function BaseVisualization() {
     return colors
   }, [availableBranches])
   
-  // Filter thoughts based on timeline position and branch filter
+  // Cluster color map
+  const clusterColors = useMemo(() => {
+    if (!vizData?.clusters) return {}
+    const colors: Record<number, string> = {}
+    const palette = [
+      '#06b6d4', // cyan
+      '#84cc16', // lime
+      '#f43f5e', // rose
+      '#a855f7', // purple
+      '#22c55e', // green
+      '#eab308', // yellow
+      '#6366f1', // indigo
+      '#f97316', // orange
+      '#14b8a6', // teal
+      '#ec4899', // pink
+    ]
+    for (let i = 0; i < vizData.clusters.k; i++) {
+      colors[i] = palette[i % palette.length]
+    }
+    return colors
+  }, [vizData?.clusters])
+  
+  // Filter thoughts based on timeline position, branch filter, and cluster filter
   const filteredThoughts = useMemo(() => {
     if (!vizData?.thoughts) return []
     
@@ -154,6 +189,11 @@ export default function BaseVisualization() {
       thoughts = thoughts.filter(t => t.branches?.includes(selectedBranch))
     }
     
+    // Filter by selected cluster
+    if (selectedCluster !== null && vizData.clusters) {
+      thoughts = thoughts.filter(t => vizData.clusters?.assignments[t.id] === selectedCluster)
+    }
+    
     // If timeline is active, filter by commit timestamp
     if (timelineIndex !== null && sortedCommits.length > 0) {
       const selectedCommit = sortedCommits[timelineIndex]
@@ -164,7 +204,7 @@ export default function BaseVisualization() {
     }
     
     return thoughts
-  }, [vizData?.thoughts, focusedIds, selectedBranch, timelineIndex, sortedCommits])
+  }, [vizData?.thoughts, vizData?.clusters, focusedIds, selectedBranch, selectedCluster, timelineIndex, sortedCommits])
 
   useEffect(() => {
     // Wait for auth to finish before fetching - user may be null (logged out) but authLoading must be false
@@ -469,6 +509,18 @@ export default function BaseVisualization() {
                 {branch}
               </span>
             ))}
+            {vizData?.clusters && selectedThought && vizData.clusters.assignments[selectedThought.id] !== undefined && (
+              <span 
+                className="text-xs px-2 py-1 rounded"
+                style={{ 
+                  backgroundColor: `${clusterColors[vizData.clusters.assignments[selectedThought.id]]}20`,
+                  color: clusterColors[vizData.clusters.assignments[selectedThought.id]],
+                  border: `1px solid ${clusterColors[vizData.clusters.assignments[selectedThought.id]]}40`
+                }}
+              >
+                Cluster {vizData.clusters.assignments[selectedThought.id] + 1}
+              </span>
+            )}
             <span className="text-xs text-gray-500">
               {new Date(selectedThought.created_at).toLocaleDateString()}
             </span>
@@ -670,6 +722,61 @@ export default function BaseVisualization() {
                   {branch.current && (
                     <span className="text-[10px] text-purple-400">HEAD</span>
                   )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Cluster filter panel */}
+      {vizData?.clusters && vizData.clusters.k > 1 && vizData.thoughts.length > 0 && (
+        <div className={`absolute z-10 bg-gray-900/90 border border-gray-800 rounded-lg p-3 backdrop-blur ${
+          availableBranches.length > 1 ? 'top-20 left-48' : 'top-20 left-4'
+        }`}>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs text-gray-400 font-medium">Clusters</div>
+            <button
+              onClick={() => setShowClusterLabels(!showClusterLabels)}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${
+                showClusterLabels ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'
+              }`}
+            >
+              Labels
+            </button>
+          </div>
+          <div className="flex flex-col gap-1 max-h-48 overflow-y-auto">
+            <button
+              onClick={() => setSelectedCluster(null)}
+              className={`flex items-center gap-2 px-2 py-1 rounded text-xs text-left transition-colors ${
+                selectedCluster === null
+                  ? 'bg-gray-700 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+              }`}
+            >
+              <span className="w-3 h-3 rounded-full bg-gradient-to-r from-cyan-500 via-lime-500 to-rose-500" />
+              All clusters
+            </button>
+            {vizData.clusters && Array.from({ length: vizData.clusters.k }, (_, i) => {
+              const clusters = vizData.clusters!
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelectedCluster(selectedCluster === i ? null : i)}
+                  className={`flex items-center gap-2 px-2 py-1 rounded text-xs text-left transition-colors ${
+                    selectedCluster === i
+                      ? 'bg-gray-700 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                  }`}
+                >
+                  <span 
+                    className="w-3 h-3 rounded-full flex-shrink-0" 
+                    style={{ backgroundColor: clusterColors[i] }}
+                  />
+                  <span className="flex-1 truncate max-w-[120px]" title={clusters.labels[i]}>
+                    {showClusterLabels ? clusters.labels[i] : `Cluster ${i + 1}`}
+                  </span>
+                  <span className="text-gray-500 flex-shrink-0">{clusters.sizes[i]}</span>
                 </button>
               )
             })}

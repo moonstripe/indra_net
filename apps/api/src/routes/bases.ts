@@ -601,11 +601,53 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
       current: name === parsed.headRef,
     }));
     
+    // Compute clusters on embedded thoughts
+    const { kmeans, findClusterRepresentatives } = await import('../lib/clustering');
+    const embeddedPositions = vizThoughts
+      .filter(t => t.has_embedding)
+      .map(t => t.position);
+    
+    let clusters = null;
+    if (embeddedPositions.length >= 4) {
+      const clusterResult = kmeans(embeddedPositions);
+      
+      // Map cluster assignments back to thought IDs
+      const embeddedThoughtIds = vizThoughts
+        .filter(t => t.has_embedding)
+        .map(t => t.id);
+      
+      // Find representative thought for each cluster
+      const representatives = findClusterRepresentatives(
+        embeddedPositions,
+        clusterResult.assignments,
+        clusterResult.centroids
+      );
+      
+      // Build cluster info with labels from representative thoughts
+      const clusterLabels = representatives.map((repIdx, clusterId) => {
+        if (repIdx < 0) return `Cluster ${clusterId + 1}`;
+        const thought = vizThoughts.find(t => t.id === embeddedThoughtIds[repIdx]);
+        // Use first 50 chars of content as label
+        return thought?.content.slice(0, 50) || `Cluster ${clusterId + 1}`;
+      });
+      
+      clusters = {
+        assignments: Object.fromEntries(
+          clusterResult.assignments.map((cluster, i) => [embeddedThoughtIds[i], cluster])
+        ),
+        centroids: clusterResult.centroids,
+        sizes: clusterResult.sizes,
+        labels: clusterLabels,
+        k: clusterResult.centroids.length,
+      };
+    }
+    
     const vizData = {
       thoughts: vizThoughts,
       edges: vizEdges,
       commits: vizCommits,
       branches: branchesList,
+      clusters,
       meta: {
         total_thoughts: parsed.thoughts.length,
         embedded_thoughts: thoughtsWithEmbeddings.length,

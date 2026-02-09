@@ -22,9 +22,18 @@ interface VizCommit {
   parents: string[]
 }
 
+interface VizEdge {
+  source: string
+  target: string
+  edge_type: string
+  weight: number
+  directed: boolean
+}
+
 interface VizMeta {
   total_thoughts: number
   embedded_thoughts: number
+  total_edges?: number
   reduction_method: string
   original_dim: number
   variance_explained?: [number, number, number]
@@ -39,6 +48,7 @@ interface VizBranch {
 
 interface VizExport {
   thoughts: VizThought[]
+  edges?: VizEdge[]
   commits?: VizCommit[]
   branches?: VizBranch[]
   meta: VizMeta
@@ -69,6 +79,8 @@ export default function BaseVisualization() {
   const rendererRef = useRef<VectorRendererHandle>(null)
   // Map from renderer embedding ID to thought
   const thoughtMapRef = useRef<Map<string, VizThought>>(new Map())
+  // Track edge IDs for cleanup
+  const edgeIdsRef = useRef<Set<string>>(new Set())
   
   // Get focused thought IDs from URL params (e.g., ?focus=id1,id2,id3)
   const focusedIds = useMemo(() => {
@@ -152,6 +164,19 @@ export default function BaseVisualization() {
       }
       thoughtMapRef.current.clear()
       
+      // Delete existing edges
+      for (const edgeId of edgeIdsRef.current) {
+        try {
+          rendererRef.current.deleteEdge(edgeId)
+        } catch (e) {
+          // Edge might not exist
+        }
+      }
+      edgeIdsRef.current.clear()
+      
+      // Build a map from thought ID to position for edge rendering
+      const thoughtPositions = new Map<string, [number, number, number]>()
+      
       for (const thought of filteredThoughts) {
         if (thought.has_embedding) {
           try {
@@ -161,13 +186,35 @@ export default function BaseVisualization() {
               thought.position[2]
             )
             thoughtMapRef.current.set(embId, thought)
+            thoughtPositions.set(thought.id, thought.position)
           } catch (e) {
             console.error('Failed to add embedding:', e)
           }
         }
       }
+      
+      // Add edges if we have edge data
+      if (vizData?.edges && vizData.edges.length > 0) {
+        for (const edge of vizData.edges) {
+          const fromPos = thoughtPositions.get(edge.source)
+          const toPos = thoughtPositions.get(edge.target)
+          
+          // Only render edge if both endpoints are visible
+          if (fromPos && toPos) {
+            try {
+              const edgeId = rendererRef.current.addEdge(
+                fromPos[0], fromPos[1], fromPos[2],
+                toPos[0], toPos[1], toPos[2]
+              )
+              edgeIdsRef.current.add(edgeId)
+            } catch (e) {
+              console.error('Failed to add edge:', e)
+            }
+          }
+        }
+      }
     }
-  }, [rendererReady, filteredThoughts])
+  }, [rendererReady, filteredThoughts, vizData?.edges])
   
   // Timeline playback
   useEffect(() => {

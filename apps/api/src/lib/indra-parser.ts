@@ -52,6 +52,15 @@ export interface ParsedThought {
   modifiedAt: number;
 }
 
+export interface ParsedEdge {
+  source: string;
+  target: string;
+  edgeType: string;
+  weight: number;
+  directed: boolean;
+  createdAt: number;
+}
+
 export interface ParsedCommit {
   hash: string;
   tree: string;
@@ -64,6 +73,7 @@ export interface ParsedCommit {
 export interface ParsedIndraFile {
   version: number;
   thoughts: ParsedThought[];
+  edges: ParsedEdge[];
   commits: ParsedCommit[];
   headRef: string;
   branches: Map<string, string>;
@@ -126,6 +136,7 @@ export async function parseIndraFile(buffer: ArrayBuffer): Promise<ParsedIndraFi
   
   // Parse all objects
   const thoughts: ParsedThought[] = [];
+  const edges: ParsedEdge[] = [];
   const commits: ParsedCommit[] = [];
   
   index.forEach(({ offset, size }, hash) => {
@@ -136,6 +147,9 @@ export async function parseIndraFile(buffer: ArrayBuffer): Promise<ParsedIndraFi
       if (blob.type === BlobType.Thought) {
         const thought = parseThought(blob.data, hash);
         if (thought) thoughts.push(thought);
+      } else if (blob.type === BlobType.Edge) {
+        const edge = parseEdge(blob.data);
+        if (edge) edges.push(edge);
       } else if (blob.type === BlobType.Commit) {
         const commit = parseCommit(blob.data, hash);
         if (commit) commits.push(commit);
@@ -152,6 +166,7 @@ export async function parseIndraFile(buffer: ArrayBuffer): Promise<ParsedIndraFi
   return {
     version,
     thoughts,
+    edges,
     commits,
     headRef,
     branches,
@@ -258,6 +273,47 @@ function parseCommit(data: Uint8Array, hash: string): ParsedCommit | null {
 }
 
 /**
+ * Parse an edge from bincode-serialized data
+ * 
+ * Rust Edge struct (bincode serialized):
+ * - source: ThoughtId (String)
+ * - target: ThoughtId (String)
+ * - edge_type: EdgeType (String newtype)
+ * - weight: f32
+ * - directed: bool
+ * - attrs: HashMap<String, serde_json::Value>
+ * - created_at: u64
+ */
+function parseEdge(data: Uint8Array): ParsedEdge | null {
+  try {
+    const reader = new BincodeReader(data);
+    
+    const source = reader.readString();
+    const target = reader.readString();
+    const edgeType = reader.readString();
+    const weight = reader.readF32();
+    const directed = reader.readBool();
+    
+    // Skip attrs HashMap
+    reader.skipHashMap();
+    
+    const createdAt = reader.readU64();
+    
+    return {
+      source,
+      target,
+      edgeType,
+      weight,
+      directed,
+      createdAt: Number(createdAt),
+    };
+  } catch (e) {
+    console.warn('Failed to parse edge:', e);
+    return null;
+  }
+}
+
+/**
  * Helper class for reading bincode-serialized data
  */
 class BincodeReader {
@@ -280,6 +336,12 @@ class BincodeReader {
     const val = this.view.getFloat32(this.pos, true);
     this.pos += 4;
     return val;
+  }
+  
+  readBool(): boolean {
+    const val = this.data[this.pos];
+    this.pos += 1;
+    return val !== 0;
   }
   
   readBytes(len: number): Uint8Array {

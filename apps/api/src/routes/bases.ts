@@ -580,6 +580,15 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
       parents: c.parents,
     }));
     
+    // Build viz edges
+    const vizEdges = parsed.edges.map(e => ({
+      source: e.source,
+      target: e.target,
+      edge_type: e.edgeType,
+      weight: e.weight,
+      directed: e.directed,
+    }));
+    
     const originalDim = embeddings.length > 0 ? embeddings[0].length : 0;
     
     // Extract embedder model from first embedded thought's attrs
@@ -594,11 +603,13 @@ basesRoutes.get('/:id/viz', optionalAuth, async (c) => {
     
     const vizData = {
       thoughts: vizThoughts,
+      edges: vizEdges,
       commits: vizCommits,
       branches: branchesList,
       meta: {
         total_thoughts: parsed.thoughts.length,
         embedded_thoughts: thoughtsWithEmbeddings.length,
+        total_edges: parsed.edges.length,
         reduction_method: embeddings.length >= 4 ? 'pca' : (embeddings.length > 0 ? 'simple' : 'none'),
         original_dim: originalDim,
         variance_explained: pcaResult.varianceExplained,

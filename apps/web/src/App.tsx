@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard'
 import BaseDetail from './pages/BaseDetail'
 import BaseVisualization from './pages/BaseVisualization'
 import Settings from './pages/Settings'
+import Docs from './pages/Docs'
 import NotFound from './pages/NotFound'
 
 function App() {
@@ -21,6 +22,7 @@ function App() {
           <Route path="dashboard" element={<Dashboard />} />
           <Route path="bases/:id" element={<BaseDetail />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="docs" element={<Docs />} />
           <Route path="*" element={<NotFound />} />
         </Route>
         {/* Visualization route without layout (fullscreen) */}

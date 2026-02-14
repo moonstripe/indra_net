@@ -21,6 +21,12 @@ export default function Layout() {
 
             {/* Nav Links */}
             <div className="flex items-center gap-6">
+              <Link 
+                to="/docs" 
+                className="text-gray-300 hover:text-white transition-colors"
+              >
+                Docs
+              </Link>
               {loading ? (
                 <div className="h-8 w-8 rounded-full bg-gray-700 animate-pulse" />
               ) : user ? (
@@ -83,9 +89,9 @@ export default function Layout() {
               <a href="https://github.com/moonstripe/indra_db" className="hover:text-gray-300">
                 GitHub
               </a>
-              <a href="/docs" className="hover:text-gray-300">
+              <Link to="/docs" className="hover:text-gray-300">
                 Docs
-              </a>
+              </Link>
             </div>
           </div>
         </div>

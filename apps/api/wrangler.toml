@@ -2,11 +2,21 @@ name = "indra-net-api"
 main = "src/index.ts"
 compatibility_date = "2024-06-14"
 
+# Observability
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+invocation_logs = true
+
 [dev]
 port = 8787
 
 [vars]
 ENVIRONMENT = "development"
+APP_URL = "http://localhost:5173"
+API_URL = "http://localhost:8787"
 
 # D1 Database binding
 [[d1_databases]]
@@ -21,5 +31,29 @@ bucket_name = "indra-net-storage"
 
 # KV for sessions/cache
 [[kv_namespaces]]
+binding = "SESSIONS"
+id = "d2582dd6447345b689b098e81dea5596"
+
+# Production environment
+[env.production]
+name = "indra-net-api-production"
+workers_dev = true  # Keep workers.dev URL as fallback
+vars = { ENVIRONMENT = "production", APP_URL = "https://indradb.net", API_URL = "https://api.indradb.net" }
+
+# Custom domain for production API
+routes = [
+  { pattern = "api.indradb.net", custom_domain = true }
+]
+
+[[env.production.d1_databases]]
+binding = "DB"
+database_name = "indra-net-db"
+database_id = "1f37dd51-bfe8-4f4c-aa7d-509793973c01"
+
+[[env.production.r2_buckets]]
+binding = "STORAGE"
+bucket_name = "indra-net-storage"
+
+[[env.production.kv_namespaces]]
 binding = "SESSIONS"
 id = "d2582dd6447345b689b098e81dea5596"

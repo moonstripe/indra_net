@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { apiFetch } from '../lib/api'
+import { Key, AlertTriangle, Check } from 'lucide-react'
 
 interface ApiKey {
   id: string
@@ -12,9 +13,11 @@ interface ApiKey {
 }
 
 type Tab = 'profile' | 'billing' | 'api-keys'
+type PlanInterval = 'monthly' | 'yearly'
 
 export default function Settings() {
-  const { user, loading: authLoading } = useAuth()
+  const { user, loading: authLoading, refresh } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState<Tab>('profile')
   const [apiKeys, setApiKeys] = useState<ApiKey[]>([])
   const [loadingKeys, setLoadingKeys] = useState(false)
@@ -22,11 +25,32 @@ export default function Settings() {
   const [newKeyName, setNewKeyName] = useState('')
   const [newKeyValue, setNewKeyValue] = useState('')
   const [upgradeLoading, setUpgradeLoading] = useState(false)
+  const [selectedInterval, setSelectedInterval] = useState<PlanInterval>('monthly')
+  const [billingMessage, setBillingMessage] = useState<{ type: 'success' | 'error' | 'info', text: string } | null>(null)
   
   // Profile form state
   const [displayName, setDisplayName] = useState('')
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileMessage, setProfileMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
+
+  // Handle success/canceled URL params from Stripe
+  useEffect(() => {
+    const success = searchParams.get('success')
+    const canceled = searchParams.get('canceled')
+    
+    if (success === 'true') {
+      setBillingMessage({ type: 'success', text: 'Welcome to Pro! Your subscription is now active.' })
+      setActiveTab('billing')
+      // Refresh user to get updated tier
+      refresh()
+      // Clean up URL
+      setSearchParams({})
+    } else if (canceled === 'true') {
+      setBillingMessage({ type: 'info', text: 'Checkout was canceled. No charges were made.' })
+      setActiveTab('billing')
+      setSearchParams({})
+    }
+  }, [searchParams, setSearchParams, refresh])
 
   useEffect(() => {
     if (user && activeTab === 'api-keys') {
@@ -88,25 +112,32 @@ export default function Settings() {
     }
   }
 
-  const handleUpgrade = async () => {
+  const handleUpgrade = async (plan: 'pro_monthly' | 'pro_yearly' = 'pro_monthly') => {
     setUpgradeLoading(true)
+    setBillingMessage(null)
     try {
       const res = await apiFetch('/api/billing/checkout', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
+        body: JSON.stringify({ plan }),
       })
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
+      } else if (data.error) {
+        setBillingMessage({ type: 'error', text: data.error })
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to start checkout:', err)
+      setBillingMessage({ type: 'error', text: err.message || 'Failed to start checkout' })
     } finally {
       setUpgradeLoading(false)
     }
   }
 
   const openBillingPortal = async () => {
+    setBillingMessage(null)
     try {
       const res = await apiFetch('/api/billing/portal', {
         method: 'POST',
@@ -115,9 +146,12 @@ export default function Settings() {
       const data = await res.json()
       if (data.url) {
         window.location.href = data.url
+      } else if (data.error) {
+        setBillingMessage({ type: 'error', text: data.error })
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to open billing portal:', err)
+      setBillingMessage({ type: 'error', text: err.message || 'Failed to open billing portal' })
     }
   }
   
@@ -297,6 +331,19 @@ export default function Settings() {
       {/* Billing Tab */}
       {activeTab === 'billing' && (
         <div className="space-y-6">
+          {/* Billing Message */}
+          {billingMessage && (
+            <div className={`p-4 rounded-lg ${
+              billingMessage.type === 'success' 
+                ? 'bg-green-900/50 text-green-400 border border-green-800' 
+                : billingMessage.type === 'error'
+                ? 'bg-red-900/50 text-red-400 border border-red-800'
+                : 'bg-blue-900/50 text-blue-400 border border-blue-800'
+            }`}>
+              {billingMessage.text}
+            </div>
+          )}
+
           {/* Current Plan */}
           <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-6">
             <h2 className="text-lg font-semibold mb-4">Current Plan</h2>
@@ -309,15 +356,6 @@ export default function Settings() {
                   {user.tier === 'enterprise' && 'Custom limits, dedicated support'}
                 </p>
               </div>
-              {user.tier === 'hobby' && (
-                <button
-                  onClick={handleUpgrade}
-                  disabled={upgradeLoading}
-                  className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-6 py-2 rounded-lg font-medium transition-colors"
-                >
-                  {upgradeLoading ? 'Loading...' : 'Upgrade to Pro'}
-                </button>
-              )}
               {user.tier === 'pro' && (
                 <button
                   onClick={openBillingPortal}
@@ -328,6 +366,65 @@ export default function Settings() {
               )}
             </div>
           </div>
+
+          {/* Upgrade Section for Hobby Users */}
+          {user.tier === 'hobby' && (
+            <div className="bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-800/50 rounded-lg p-6">
+              <h2 className="text-xl font-semibold mb-2">Upgrade to Pro</h2>
+              <p className="text-gray-400 mb-6">
+                Unlock unlimited databases, advanced analytics, and API access.
+              </p>
+              
+              {/* Interval Toggle */}
+              <div className="flex items-center gap-4 mb-6">
+                <button
+                  onClick={() => setSelectedInterval('monthly')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedInterval === 'monthly'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Monthly
+                </button>
+                <button
+                  onClick={() => setSelectedInterval('yearly')}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedInterval === 'yearly'
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-800 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  Yearly <span className="text-green-400 text-xs ml-1">Save 17%</span>
+                </button>
+              </div>
+
+              {/* Price Display */}
+              <div className="flex items-baseline gap-2 mb-6">
+                <span className="text-4xl font-bold">
+                  {selectedInterval === 'monthly' ? '$10' : '$100'}
+                </span>
+                <span className="text-gray-400">
+                  /{selectedInterval === 'monthly' ? 'month' : 'year'}
+                </span>
+              </div>
+
+              <button
+                onClick={() => handleUpgrade(selectedInterval === 'monthly' ? 'pro_monthly' : 'pro_yearly')}
+                disabled={upgradeLoading}
+                className="w-full sm:w-auto bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-8 py-3 rounded-lg font-medium transition-colors"
+              >
+                {upgradeLoading ? (
+                  <span className="flex items-center gap-2">
+                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                    Redirecting to checkout...
+                  </span>
+                ) : (
+                  `Upgrade to Pro - ${selectedInterval === 'monthly' ? '$10/mo' : '$100/yr'}`
+                )}
+              </button>
+            </div>
+          )}
 
           {/* Plans Comparison */}
           <div className="grid md:grid-cols-3 gap-4">
@@ -344,7 +441,7 @@ export default function Settings() {
             />
             <PlanCard
               name="Pro"
-              price="$10/mo"
+              price={selectedInterval === 'monthly' ? '$10/mo' : '$100/yr'}
               features={[
                 'Unlimited databases',
                 '100,000 thoughts',
@@ -355,6 +452,8 @@ export default function Settings() {
               ]}
               current={user.tier === 'pro'}
               highlighted
+              onUpgrade={user.tier === 'hobby' ? () => handleUpgrade(selectedInterval === 'monthly' ? 'pro_monthly' : 'pro_yearly') : undefined}
+              upgradeLoading={upgradeLoading}
             />
             <PlanCard
               name="Enterprise"
@@ -378,13 +477,13 @@ export default function Settings() {
         <div className="space-y-6">
           {user.tier === 'hobby' ? (
             <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-8 text-center">
-              <div className="text-4xl mb-4">🔑</div>
+              <Key className="w-12 h-12 mx-auto mb-4 text-gray-400" />
               <h3 className="text-xl font-semibold mb-2">API Access Requires Pro</h3>
               <p className="text-gray-400 mb-6">
                 Upgrade to Pro to get programmatic access to your databases via API keys.
               </p>
               <button
-                onClick={handleUpgrade}
+                onClick={() => handleUpgrade('pro_monthly')}
                 disabled={upgradeLoading}
                 className="bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-6 py-2 rounded-lg font-medium transition-colors"
               >
@@ -460,8 +559,9 @@ export default function Settings() {
                   <>
                     <h2 className="text-xl font-bold mb-4">Your New API Key</h2>
                     <div className="bg-yellow-900/20 border border-yellow-700/50 rounded-lg p-4 mb-4">
-                      <p className="text-yellow-400 text-sm">
-                        ⚠️ Copy this key now. You won't be able to see it again!
+                      <p className="text-yellow-400 text-sm flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4" />
+                        Copy this key now. You won't be able to see it again!
                       </p>
                     </div>
                     <code className="block bg-black/50 p-4 rounded text-sm font-mono text-green-400 break-all">
@@ -530,6 +630,8 @@ function PlanCard({
   current,
   highlighted,
   contactSales,
+  onUpgrade,
+  upgradeLoading,
 }: {
   name: string
   price: string
@@ -537,6 +639,8 @@ function PlanCard({
   current?: boolean
   highlighted?: boolean
   contactSales?: boolean
+  onUpgrade?: () => void
+  upgradeLoading?: boolean
 }) {
   return (
     <div
@@ -556,11 +660,20 @@ function PlanCard({
       <ul className="mt-6 space-y-3">
         {features.map((feature) => (
           <li key={feature} className="flex items-center gap-2 text-sm text-gray-300">
-            <span className="text-green-400">✓</span>
+            <Check className="w-4 h-4 text-green-400" />
             {feature}
           </li>
         ))}
       </ul>
+      {onUpgrade && !current && (
+        <button
+          onClick={onUpgrade}
+          disabled={upgradeLoading}
+          className="w-full mt-6 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+        >
+          {upgradeLoading ? 'Loading...' : 'Upgrade'}
+        </button>
+      )}
       {contactSales && !current && (
         <button className="w-full mt-6 border border-gray-700 hover:border-gray-600 px-4 py-2 rounded-lg text-sm transition-colors">
           Contact Sales

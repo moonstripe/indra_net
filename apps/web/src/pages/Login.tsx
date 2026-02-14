@@ -1,5 +1,6 @@
 import { useAuth } from '../contexts/AuthContext'
 import { Navigate } from 'react-router-dom'
+import Logo from '../components/Logo'
 
 export default function Login() {
   const { user, loading, login } = useAuth()
@@ -19,7 +20,10 @@ export default function Login() {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-8 max-w-md w-full">
-        <h1 className="text-2xl font-bold text-center mb-2">Welcome to IndraNet</h1>
+        <div className="flex justify-center mb-4">
+          <Logo size={48} />
+        </div>
+        <h1 className="text-2xl font-bold text-center mb-2">Welcome to IndraDB</h1>
         <p className="text-gray-400 text-center mb-8">
           Sign in to manage your AI knowledge bases
         </p>

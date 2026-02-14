@@ -1,8 +1,14 @@
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { Brain, RefreshCw, BarChart3, Check } from 'lucide-react'
 
 export default function Home() {
-  const { user } = useAuth()
+  const { user, loading } = useAuth()
+
+  // Redirect logged-in users to dashboard
+  if (!loading && user) {
+    return <Navigate to="/dashboard" replace />
+  }
 
   return (
     <div className="relative overflow-hidden">
@@ -18,26 +24,17 @@ export default function Home() {
           </h1>
           
           <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto">
-            IndraNet is a GitHub-like platform for <code className="text-purple-400">.indra</code> databases. 
+            IndraDB is a GitHub-like platform for <code className="text-purple-400">.indra</code> databases. 
             Track what your AI agents are thinking, storing, and how their understanding evolves over time.
           </p>
 
           <div className="mt-10 flex justify-center gap-4">
-            {user ? (
-              <Link
-                to="/dashboard"
-                className="bg-purple-600 hover:bg-purple-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
-              >
-                Go to Dashboard
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                className="bg-purple-600 hover:bg-purple-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
-              >
-                Get Started Free
-              </Link>
-            )}
+            <Link
+              to="/login"
+              className="bg-purple-600 hover:bg-purple-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
+            >
+              Get Started Free
+            </Link>
             <a
               href="https://github.com/moonstripe/indra_db"
               className="border border-gray-700 hover:border-gray-500 px-8 py-3 rounded-lg font-semibold text-lg transition-colors"
@@ -52,17 +49,17 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <div className="grid md:grid-cols-3 gap-8">
           <FeatureCard
-            icon="🧠"
+            icon={<Brain className="w-10 h-10 text-purple-400" />}
             title="Track AI Memory"
             description="See exactly what your AI agents remember across sessions. Every thought, every insight, versioned and searchable."
           />
           <FeatureCard
-            icon="🔄"
+            icon={<RefreshCw className="w-10 h-10 text-purple-400" />}
             title="Sync Everywhere"
             description="Push and pull .indra databases like git repos. Keep your agents' knowledge in sync across machines."
           />
           <FeatureCard
-            icon="📊"
+            icon={<BarChart3 className="w-10 h-10 text-purple-400" />}
             title="Analyze Reasoning"
             description="Visualize how understanding evolves. Detect semantic drift, cluster topics, and understand your AI better."
           />
@@ -123,10 +120,10 @@ export default function Home() {
   )
 }
 
-function FeatureCard({ icon, title, description }: { icon: string; title: string; description: string }) {
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
   return (
     <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-6 hover:border-purple-500/50 transition-colors">
-      <div className="text-4xl mb-4">{icon}</div>
+      <div className="mb-4">{icon}</div>
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
       <p className="text-gray-400">{description}</p>
     </div>
@@ -171,7 +168,7 @@ const comparisonData: ComparisonFeature[] = [
   },
   {
     feature: '3D Visualization',
-    indra: 'PCA + WebGL via IndraNet',
+    indra: 'PCA + WebGL via IndraDB',
     others: 'Not available',
     highlight: true,
   },
@@ -200,7 +197,7 @@ function ComparisonMatrix() {
               <td className="py-3 px-4 font-medium">{row.feature}</td>
               <td className="py-3 px-4">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="text-green-400">✓</span>
+                  <Check className="w-4 h-4 text-green-400" />
                   <span className={row.highlight ? 'text-purple-300' : 'text-gray-300'}>
                     {row.indra}
                   </span>
@@ -219,7 +216,7 @@ function ComparisonMatrix() {
             <h4 className="font-medium mb-2">{row.feature}</h4>
             <div className="flex flex-col gap-1 text-sm">
               <div className="flex items-center gap-2">
-                <span className="text-green-400">✓</span>
+                <Check className="w-4 h-4 text-green-400" />
                 <span className="text-purple-300 font-medium">Indra:</span>
                 <span className="text-gray-300">{row.indra}</span>
               </div>
@@ -268,7 +265,7 @@ function PricingCard({
       <ul className="space-y-3">
         {features.map((feature, i) => (
           <li key={i} className="flex items-center gap-2 text-gray-300">
-            <span className="text-purple-400">✓</span>
+            <Check className="w-4 h-4 text-purple-400" />
             {feature}
           </li>
         ))}

@@ -968,6 +968,215 @@ basesRoutes.get('/:id/branches/compare', optionalAuth, async (c) => {
  * This reads from the viz data which contains thought content.
  * Returns thoughts in a format suitable for list display.
  */
+/**
+ * Get analytics for a base (requires 10+ thoughts)
+ * 
+ * Returns null if fewer than 10 thoughts, otherwise provides:
+ * - Thought growth over time
+ * - Cluster distribution
+ * - Activity heatmap
+ * - Branch comparison
+ * - Embedding quality metrics
+ * - Top connections (hub analysis)
+ * - Semantic diversity score
+ */
+basesRoutes.get('/:id/analytics', optionalAuth, async (c) => {
+  const user = c.get('user') as User | undefined;
+  const id = c.req.param('id');
+  
+  const base = await c.env.DB.prepare(
+    'SELECT * FROM indra_bases WHERE id = ?'
+  ).bind(id).first<IndraBase>();
+  
+  if (!base) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check access
+  if (base.visibility === 'private' && base.owner_id !== user?.id) {
+    return c.json({ error: 'Not found' }, 404);
+  }
+  
+  // Check if we have cached analytics
+  const analyticsKey = `${base.storage_key}.analytics.json`;
+  const cached = await c.env.STORAGE.get(analyticsKey);
+  
+  if (cached) {
+    const analytics = await cached.json();
+    return c.json({ analytics, cached: true });
+  }
+  
+  // Need viz data to compute analytics
+  const vizKey = `${base.storage_key}.viz.json`;
+  let vizData = null;
+  
+  const vizCached = await c.env.STORAGE.get(vizKey);
+  if (vizCached) {
+    vizData = await vizCached.json();
+  } else {
+    // Try to fetch from viz endpoint
+    // Actually, let's compute viz data inline if needed
+    const indraFile = await c.env.STORAGE.get(base.storage_key);
+    if (!indraFile) {
+      return c.json({ 
+        analytics: null,
+        reason: 'No .indra file found. Push your database first.',
+      });
+    }
+    
+    // Compute viz data (simplified - just parse thoughts)
+    try {
+      const { parseIndraFile } = await import('../lib/indra-parser');
+      const { pca3d } = await import('../lib/pca');
+      const { kmeans, findClusterRepresentatives } = await import('../lib/clustering');
+      
+      const buffer = await indraFile.arrayBuffer();
+      const parsed = await parseIndraFile(buffer);
+      
+      const thoughtsWithEmbeddings = parsed.thoughts.filter(t => t.embedding && t.embedding.length > 0);
+      const thoughtsWithoutEmbeddings = parsed.thoughts.filter(t => !t.embedding || t.embedding.length === 0);
+      
+      const embeddings = thoughtsWithEmbeddings.map(t => t.embedding!);
+      const pcaResult = embeddings.length > 0 ? pca3d(embeddings) : { positions: [], varianceExplained: [0, 0, 0] as [number, number, number], mean: [] };
+      
+      const vizThoughts = [
+        ...thoughtsWithEmbeddings.map((t, i) => ({
+          id: t.id,
+          content: t.content,
+          thought_type: t.thoughtType,
+          position: pcaResult.positions[i] as [number, number, number],
+          has_embedding: true,
+          created_at: t.createdAt,
+          branches: ['main'],
+        })),
+        ...thoughtsWithoutEmbeddings.map(t => ({
+          id: t.id,
+          content: t.content,
+          thought_type: t.thoughtType,
+          position: [0.5, 0.5, 0.5] as [number, number, number],
+          has_embedding: false,
+          created_at: t.createdAt,
+          branches: ['main'],
+        })),
+      ];
+      
+      const vizEdges = parsed.edges.map(e => ({
+        source: e.source,
+        target: e.target,
+        edge_type: e.edgeType,
+        weight: e.weight,
+        directed: e.directed,
+      }));
+      
+      const vizCommits = parsed.commits.map(c => ({
+        hash: c.hash,
+        message: c.message,
+        author: c.author,
+        timestamp: c.timestamp,
+        parents: c.parents,
+      }));
+      
+      const branchesList = Array.from(parsed.branches.entries()).map(([name, hash]) => ({
+        name,
+        hash,
+        current: name === parsed.headRef,
+      }));
+      
+      // Compute clusters
+      const embeddedPositions = vizThoughts
+        .filter(t => t.has_embedding)
+        .map(t => t.position);
+      
+      let clusters = null;
+      if (embeddedPositions.length >= 4) {
+        const clusterResult = kmeans(embeddedPositions);
+        const embeddedThoughtIds = vizThoughts.filter(t => t.has_embedding).map(t => t.id);
+        const representatives = findClusterRepresentatives(embeddedPositions, clusterResult.assignments, clusterResult.centroids);
+        
+        const clusterLabels = representatives.map((repIdx, clusterId) => {
+          if (repIdx < 0) return `Cluster ${clusterId + 1}`;
+          const thought = vizThoughts.find(t => t.id === embeddedThoughtIds[repIdx]);
+          return thought?.content.slice(0, 50) || `Cluster ${clusterId + 1}`;
+        });
+        
+        clusters = {
+          assignments: Object.fromEntries(clusterResult.assignments.map((cluster, i) => [embeddedThoughtIds[i], cluster])),
+          centroids: clusterResult.centroids,
+          sizes: clusterResult.sizes,
+          labels: clusterLabels,
+          k: clusterResult.centroids.length,
+        };
+      }
+      
+      const embedderModel = thoughtsWithEmbeddings.find(t => t.embedderModel)?.embedderModel ?? null;
+      
+      vizData = {
+        thoughts: vizThoughts,
+        edges: vizEdges,
+        commits: vizCommits,
+        branches: branchesList,
+        clusters,
+        meta: {
+          total_thoughts: parsed.thoughts.length,
+          embedded_thoughts: thoughtsWithEmbeddings.length,
+          total_edges: parsed.edges.length,
+          reduction_method: embeddings.length >= 4 ? 'pca' : (embeddings.length > 0 ? 'simple' : 'none'),
+          original_dim: embeddings.length > 0 ? embeddings[0].length : 0,
+          variance_explained: pcaResult.varianceExplained,
+          ...(embedderModel ? { embedder_model: embedderModel } : {}),
+        },
+      };
+      
+      // Cache viz data
+      await c.env.STORAGE.put(vizKey, JSON.stringify(vizData), {
+        httpMetadata: { contentType: 'application/json' },
+      });
+      
+    } catch (e) {
+      console.error('Failed to compute viz for analytics:', e);
+      return c.json({
+        analytics: null,
+        reason: `Failed to parse .indra file: ${e instanceof Error ? e.message : 'Unknown error'}`,
+      }, 500);
+    }
+  }
+  
+  // Compute analytics from viz data
+  try {
+    const { computeAnalytics } = await import('../lib/analytics');
+    const analytics = computeAnalytics(vizData);
+    
+    if (!analytics) {
+      return c.json({
+        analytics: null,
+        reason: 'Analytics requires at least 10 thoughts. Keep adding to your knowledge base!',
+        thought_count: vizData.thoughts?.length || 0,
+        threshold: 10,
+      });
+    }
+    
+    // Cache analytics
+    await c.env.STORAGE.put(analyticsKey, JSON.stringify(analytics), {
+      httpMetadata: { contentType: 'application/json' },
+    });
+    
+    return c.json({ analytics, cached: false });
+    
+  } catch (e) {
+    console.error('Failed to compute analytics:', e);
+    return c.json({
+      analytics: null,
+      reason: `Failed to compute analytics: ${e instanceof Error ? e.message : 'Unknown error'}`,
+    }, 500);
+  }
+});
+
+/**
+ * Get thoughts list for a base (public bases accessible without auth)
+ * 
+ * This reads from the viz data which contains thought content.
+ * Returns thoughts in a format suitable for list display.
+ */
 basesRoutes.get('/:id/thoughts', optionalAuth, async (c) => {
   const user = c.get('user') as User | undefined;
   const id = c.req.param('id');

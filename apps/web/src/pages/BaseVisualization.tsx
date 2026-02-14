@@ -3,6 +3,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { VectorRenderer, type VectorRendererHandle } from 'react-vector-renderer'
 import { apiFetch } from '../lib/api'
+import { Frown, Orbit, Download, Copy, Check } from 'lucide-react'
 
 interface VizThought {
   id: string
@@ -76,7 +77,9 @@ export default function BaseVisualization() {
   const [selectedThought, setSelectedThought] = useState<VizThought | null>(null)
   const [rendererReady, setRendererReady] = useState(false)
   const [baseName, setBaseName] = useState('')
+  const [baseVisibility, setBaseVisibility] = useState<'public' | 'private'>('private')
   const [canEdit, setCanEdit] = useState(false)
+  const [copyFeedback, setCopyFeedback] = useState(false)
   
   // Timeline state
   const [timelineIndex, setTimelineIndex] = useState<number | null>(null) // null = show all
@@ -307,6 +310,7 @@ export default function BaseVisualization() {
       }
       const baseData = await baseRes.json()
       setBaseName(baseData.base.name)
+      setBaseVisibility(baseData.base.visibility)
       setCanEdit(baseData.base.owner_id === user?.id)
 
       // Fetch visualization data
@@ -345,21 +349,50 @@ export default function BaseVisualization() {
     rendererRef.current?.clearSelection()
   }
 
-  // Screenshot function - captures the canvas
+  // Screenshot function - captures the canvas by re-rendering to a temp canvas
   const handleScreenshot = useCallback(() => {
-    const canvas = document.getElementById('vector-canvas') as HTMLCanvasElement
-    if (!canvas) return
+    // WebGL canvases lose their content after each frame unless preserveDrawingBuffer is enabled
+    // Since we can't change that, we'll capture via html2canvas or use a workaround
+    // For now, we'll try to get the canvas directly and warn if empty
+    const canvas = document.querySelector('canvas') as HTMLCanvasElement
+    if (!canvas) {
+      console.error('Canvas not found')
+      return
+    }
     
-    // Create a link and trigger download
-    const link = document.createElement('a')
-    link.download = `${baseName || 'visualization'}-${Date.now()}.png`
-    link.href = canvas.toDataURL('image/png')
-    link.click()
+    // Try to get the data URL
+    try {
+      const dataUrl = canvas.toDataURL('image/png')
+      
+      // Check if the canvas is blank (all transparent) - this happens with WebGL
+      // If so, we need to use a different approach
+      if (dataUrl === 'data:,' || dataUrl.length < 1000) {
+        // Canvas might be blank due to WebGL context loss
+        // For now, show an alert - in future could implement requestAnimationFrame capture
+        alert('Screenshot capture failed. Try using your browser\'s built-in screenshot tool (Cmd+Shift+4 on Mac, Win+Shift+S on Windows).')
+        return
+      }
+      
+      // Create a link and trigger download
+      const link = document.createElement('a')
+      link.download = `${baseName || 'visualization'}-${Date.now()}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (e) {
+      console.error('Failed to capture screenshot:', e)
+      alert('Screenshot capture failed. Try using your browser\'s built-in screenshot tool.')
+    }
   }, [baseName])
 
-  // Copy shareable link to clipboard
+  // Copy shareable link to clipboard (only for public bases)
   const handleCopyLink = useCallback(() => {
-    const url = new URL(window.location.href)
+    if (baseVisibility !== 'public') return
+    
+    // Build the full public URL
+    const baseUrl = 'https://indradb.net'
+    const path = `/bases/${id}/viz`
+    const url = new URL(path, baseUrl)
+    
     // Add current filters to URL
     if (selectedBranch) {
       url.searchParams.set('branch', selectedBranch)
@@ -367,8 +400,11 @@ export default function BaseVisualization() {
     if (timelineIndex !== null) {
       url.searchParams.set('commit', timelineIndex.toString())
     }
+    
     navigator.clipboard.writeText(url.toString())
-  }, [selectedBranch, timelineIndex])
+    setCopyFeedback(true)
+    setTimeout(() => setCopyFeedback(false), 2000)
+  }, [id, baseVisibility, selectedBranch, timelineIndex])
 
   if (authLoading || loading) {
     return (
@@ -382,7 +418,7 @@ export default function BaseVisualization() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center">
-          <div className="text-6xl mb-4">😕</div>
+          <Frown className="w-16 h-16 mx-auto mb-4 text-gray-500" />
           <h1 className="text-2xl font-bold mb-2 text-white">{error}</h1>
           <p className="text-gray-400 mb-6">
             The database you're looking for doesn't exist or you don't have access to it.
@@ -427,21 +463,19 @@ export default function BaseVisualization() {
               <button
                 onClick={handleScreenshot}
                 className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
-                title="Download screenshot"
+                title="Download screenshot (use browser screenshot for best results)"
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
+                <Download className="w-4 h-4" />
               </button>
-              <button
-                onClick={handleCopyLink}
-                className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
-                title="Copy shareable link"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
-                </svg>
-              </button>
+              {baseVisibility === 'public' && (
+                <button
+                  onClick={handleCopyLink}
+                  className="p-2 rounded-lg bg-gray-800 hover:bg-gray-700 transition-colors text-gray-400 hover:text-white"
+                  title="Copy shareable link"
+                >
+                  {copyFeedback ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -462,7 +496,7 @@ export default function BaseVisualization() {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center max-w-md">
-              <div className="text-6xl mb-4">🌌</div>
+              <Orbit className="w-16 h-16 mx-auto mb-4 text-purple-400" />
               <h2 className="text-xl font-semibold mb-2">No visualization data yet</h2>
               <p className="text-gray-400 mb-4">
                 {vizData?.message || 'Push your database with visualization data to see your thought cloud.'}

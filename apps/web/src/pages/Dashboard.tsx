@@ -3,6 +3,7 @@ import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { apiFetch } from '../lib/api'
 import ActivityHeatmap from '../components/ActivityHeatmap'
+import { BookOpen } from 'lucide-react'
 
 interface IndraBase {
   id: string
@@ -14,12 +15,22 @@ interface IndraBase {
   updated_at: string
 }
 
+// Tier limits
+const TIER_LIMITS = {
+  hobby: 3,
+  pro: Infinity,
+  enterprise: Infinity,
+}
+
 export default function Dashboard() {
   const { user, loading: authLoading } = useAuth()
   const [bases, setBases] = useState<IndraBase[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [activityDates, setActivityDates] = useState<string[]>([])
+  
+  const baseLimit = user ? TIER_LIMITS[user.tier] : 0
+  const atLimit = user?.tier === 'hobby' && bases.length >= baseLimit
 
   useEffect(() => {
     if (user) {
@@ -70,7 +81,13 @@ export default function Dashboard() {
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="bg-purple-600 hover:bg-purple-500 px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2"
+          disabled={atLimit}
+          className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+            atLimit 
+              ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+              : 'bg-purple-600 hover:bg-purple-500'
+          }`}
+          title={atLimit ? `Hobby tier limited to ${baseLimit} databases` : undefined}
         >
           <span>+</span>
           New Database
@@ -83,8 +100,8 @@ export default function Dashboard() {
           <span className="text-gray-400">Current plan: </span>
           <span className="font-semibold capitalize">{user.tier}</span>
           {user.tier === 'hobby' && (
-            <span className="text-gray-500 ml-2">
-              ({bases.length}/1 databases used)
+            <span className={`ml-2 ${atLimit ? 'text-orange-400' : 'text-gray-500'}`}>
+              ({bases.length}/{baseLimit} databases{atLimit ? ' - limit reached' : ''})
             </span>
           )}
         </div>
@@ -120,14 +137,19 @@ export default function Dashboard() {
         </div>
       ) : bases.length === 0 ? (
         <div className="text-center py-16 bg-gray-900/30 border border-gray-800 rounded-lg">
-          <div className="text-6xl mb-4">📚</div>
+          <BookOpen className="w-16 h-16 mx-auto mb-4 text-gray-500" />
           <h3 className="text-xl font-semibold mb-2">No databases yet</h3>
           <p className="text-gray-400 mb-6">
             Create your first .indra database to start tracking AI reasoning
           </p>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="bg-purple-600 hover:bg-purple-500 px-6 py-2 rounded-lg font-medium transition-colors"
+            disabled={atLimit}
+            className={`px-6 py-2 rounded-lg font-medium transition-colors ${
+              atLimit 
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed' 
+                : 'bg-purple-600 hover:bg-purple-500'
+            }`}
           >
             Create Database
           </button>

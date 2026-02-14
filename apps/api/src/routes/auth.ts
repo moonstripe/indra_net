@@ -228,6 +228,153 @@ authRoutes.post('/logout', async (c) => {
 });
 
 /**
+ * Google OAuth callback
+ */
+authRoutes.post('/google', async (c) => {
+  const { code } = await c.req.json<{ code: string }>();
+  
+  if (!code) {
+    return c.json({ error: 'Missing code' }, 400);
+  }
+  
+  if (!c.env.GOOGLE_CLIENT_ID || !c.env.GOOGLE_CLIENT_SECRET) {
+    return c.json({ error: 'Google OAuth not configured' }, 500);
+  }
+  
+  try {
+    // Get the redirect URI from the request origin
+    const origin = c.req.header('Origin') || c.env.APP_URL || 'https://indradb.net';
+    const redirectUri = `${origin}/auth/callback/google`;
+    
+    // Exchange code for access token
+    const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        code,
+        client_id: c.env.GOOGLE_CLIENT_ID,
+        client_secret: c.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
+    
+    const tokenData = await tokenResponse.json() as { 
+      access_token?: string; 
+      id_token?: string;
+      error?: string;
+      error_description?: string;
+    };
+    
+    if (tokenData.error || !tokenData.access_token) {
+      console.error('Google token error:', tokenData);
+      return c.json({ error: tokenData.error_description || 'Failed to exchange code' }, 400);
+    }
+    
+    // Get user info from Google
+    const userResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${tokenData.access_token}`,
+      },
+    });
+    
+    const googleUser = await userResponse.json() as {
+      id: string;
+      email: string;
+      name: string;
+      picture: string;
+    };
+    
+    if (!googleUser.email) {
+      return c.json({ error: 'Could not get email from Google' }, 400);
+    }
+    
+    // Find or create user
+    let user = await c.env.DB.prepare(
+      'SELECT * FROM users WHERE google_id = ?'
+    ).bind(googleUser.id).first<User>();
+    
+    if (!user) {
+      // Check if email already exists
+      const existingUser = await c.env.DB.prepare(
+        'SELECT * FROM users WHERE email = ?'
+      ).bind(googleUser.email).first<User>();
+      
+      if (existingUser) {
+        // Link Google to existing account
+        await c.env.DB.prepare(
+          'UPDATE users SET google_id = ?, avatar_url = COALESCE(avatar_url, ?), updated_at = datetime("now") WHERE id = ?'
+        ).bind(googleUser.id, googleUser.picture, existingUser.id).run();
+        user = { ...existingUser, google_id: googleUser.id };
+      } else {
+        // Create new user
+        const userId = generateId();
+        await c.env.DB.prepare(
+          `INSERT INTO users (id, email, name, avatar_url, google_id, tier)
+           VALUES (?, ?, ?, ?, ?, 'hobby')`
+        ).bind(userId, googleUser.email, googleUser.name || googleUser.email.split('@')[0], googleUser.picture, googleUser.id).run();
+        
+        user = await c.env.DB.prepare(
+          'SELECT * FROM users WHERE id = ?'
+        ).bind(userId).first<User>();
+      }
+    }
+    
+    if (!user) {
+      return c.json({ error: 'Failed to create user' }, 500);
+    }
+    
+    // Generate access and refresh tokens
+    const accessToken = generateId() + generateId();
+    const refreshToken = generateId() + generateId();
+    
+    // Store access token in KV (1 hour)
+    await c.env.SESSIONS.put(`access:${accessToken}`, JSON.stringify({
+      user_id: user.id,
+    }), { expirationTtl: 60 * 60 });
+    
+    // Store refresh token in KV (30 days)
+    await c.env.SESSIONS.put(`refresh:${refreshToken}`, JSON.stringify({
+      user_id: user.id,
+      created_at: Date.now(),
+    }), { expirationTtl: 30 * 24 * 60 * 60 });
+    
+    // Also set cookie for same-origin usage
+    const sessionId = generateId();
+    const session: Session = {
+      user_id: user.id,
+      created_at: new Date().toISOString(),
+      expires_at: new Date(Date.now() + SESSION_DURATION_MS).toISOString(),
+    };
+    
+    await c.env.SESSIONS.put(sessionId, JSON.stringify(session), {
+      expirationTtl: SESSION_DURATION_MS / 1000,
+    });
+    
+    setCookie(c, 'session', sessionId, {
+      httpOnly: true,
+      secure: c.env.ENVIRONMENT === 'production',
+      sameSite: 'Lax',
+      maxAge: SESSION_DURATION_MS / 1000,
+      path: '/',
+    });
+    
+    return c.json({
+      user,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_in: 60 * 60,
+    });
+    
+  } catch (error) {
+    console.error('Google OAuth error:', error);
+    return c.json({ error: 'Authentication failed' }, 500);
+  }
+});
+
+/**
  * CLI login flow - initiates OAuth and returns tokens to CLI
  * 
  * Flow:

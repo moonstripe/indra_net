@@ -12,7 +12,9 @@ export interface Env {
   SESSIONS: KVNamespace;
   
   // Environment variables
-  ENVIRONMENT: string;
+  ENVIRONMENT: 'development' | 'production';
+  APP_URL?: string; // e.g., https://indradb.net
+  API_URL?: string; // e.g., https://api.indradb.net
   
   // OAuth secrets (set via wrangler secret)
   GITHUB_CLIENT_ID?: string;

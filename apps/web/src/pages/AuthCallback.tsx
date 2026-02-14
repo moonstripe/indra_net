@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { apiUrl } from '../lib/api'
+import { XCircle } from 'lucide-react'
 
 export default function AuthCallback() {
   const { provider } = useParams<{ provider: 'github' | 'google' }>()
@@ -62,7 +63,7 @@ export default function AuthCallback() {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
         <div className="bg-gray-900/50 border border-red-800 rounded-xl p-8 max-w-md w-full text-center">
-          <div className="text-4xl mb-4">❌</div>
+          <XCircle className="w-12 h-12 mx-auto mb-4 text-red-400" />
           <h1 className="text-xl font-bold text-red-400 mb-2">Authentication Failed</h1>
           <p className="text-gray-400 mb-6">{error}</p>
           <button

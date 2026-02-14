@@ -1,6 +1,6 @@
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Brain, RefreshCw, BarChart3, Check } from 'lucide-react'
+import { Brain, GitBranch, BarChart3, Check, Clock, Search } from 'lucide-react'
 
 export default function Home() {
   const { user, loading } = useAuth()
@@ -17,15 +17,15 @@ export default function Home() {
         <div className="text-center">
           <h1 className="text-5xl sm:text-7xl font-bold tracking-tight">
             <span className="bg-gradient-to-r from-purple-400 via-pink-400 to-orange-400 bg-clip-text text-transparent">
-              Version Control
+              Memory
             </span>
             <br />
-            <span className="text-gray-100">for AI Reasoning</span>
+            <span className="text-gray-100">for AI Agents</span>
           </h1>
           
           <p className="mt-6 text-xl text-gray-400 max-w-2xl mx-auto">
-            IndraDB is a GitHub-like platform for <code className="text-purple-400">.indra</code> databases. 
-            Track what your AI agents are thinking, storing, and how their understanding evolves over time.
+            Give your AI agents persistent memory that survives sessions. 
+            Track their reasoning, decisions, and how their understanding evolves.
           </p>
 
           <div className="mt-10 flex justify-center gap-4">
@@ -45,24 +45,85 @@ export default function Home() {
         </div>
       </div>
 
+      {/* The Problem */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="bg-gray-900/50 border border-gray-800 rounded-xl p-8 max-w-3xl mx-auto">
+          <h2 className="text-2xl font-bold mb-4 text-center">The Problem</h2>
+          <p className="text-gray-400 text-lg text-center">
+            AI agents start fresh every session. Yesterday's insights evaporate. 
+            Decisions get re-made. Your agent recommends something different each time 
+            because it can't remember why it chose the first approach.
+          </p>
+        </div>
+      </div>
+
       {/* Features */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <h2 className="text-3xl font-bold text-center mb-12">What Indra Gives Your Agent</h2>
         <div className="grid md:grid-cols-3 gap-8">
           <FeatureCard
             icon={<Brain className="w-10 h-10 text-purple-400" />}
-            title="Track AI Memory"
-            description="See exactly what your AI agents remember across sessions. Every thought, every insight, versioned and searchable."
+            title="Persistent Reasoning"
+            description="Agents record their decisions and why they made them. Next session, they remember."
           />
           <FeatureCard
-            icon={<RefreshCw className="w-10 h-10 text-purple-400" />}
-            title="Sync Everywhere"
-            description="Push and pull .indra databases like git repos. Keep your agents' knowledge in sync across machines."
+            icon={<GitBranch className="w-10 h-10 text-purple-400" />}
+            title="Branching Exploration"
+            description="Try alternative approaches in isolated branches. Keep the main reasoning thread intact."
+          />
+          <FeatureCard
+            icon={<Search className="w-10 h-10 text-purple-400" />}
+            title="Semantic Search"
+            description="Find past decisions by meaning, not keywords. 'Database choice' finds 'PostgreSQL recommendation'."
+          />
+        </div>
+        <div className="grid md:grid-cols-2 gap-8 mt-8 max-w-2xl mx-auto">
+          <FeatureCard
+            icon={<Clock className="w-10 h-10 text-purple-400" />}
+            title="Reasoning History"
+            description="See how understanding evolved. Debug why conclusions changed."
           />
           <FeatureCard
             icon={<BarChart3 className="w-10 h-10 text-purple-400" />}
-            title="Analyze Reasoning"
-            description="Visualize how understanding evolves. Detect semantic drift, cluster topics, and understand your AI better."
+            title="3D Visualization"
+            description="Watch reasoning clusters form. See connections between decisions."
           />
+        </div>
+      </div>
+
+      {/* How It Works */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
+        <h2 className="text-3xl font-bold text-center mb-4">How It Works</h2>
+        <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
+          Indra is an MCP server. Your agent uses it like any other tool.
+        </p>
+        
+        <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+          <StepCard
+            number="1"
+            title="Agent Makes Decision"
+            description="User asks for a recommendation. Agent reasons and decides."
+          />
+          <StepCard
+            number="2"
+            title="Agent Records Reasoning"
+            description="Agent calls indra_remember with its decision and rationale."
+          />
+          <StepCard
+            number="3"
+            title="Next Session"
+            description="Agent calls indra_search to find past reasoning. Maintains consistency."
+          />
+        </div>
+
+        <div className="mt-12 bg-gray-900/50 border border-gray-800 rounded-xl p-6 max-w-3xl mx-auto">
+          <p className="text-gray-300 font-mono text-sm">
+            <span className="text-purple-400">User:</span> Should I use PostgreSQL or MongoDB?<br/><br/>
+            <span className="text-green-400">Agent:</span> <span className="text-gray-500">→ indra_search(&#123; query: "database recommendations" &#125;)</span><br/>
+            <span className="text-gray-500 ml-4">Found: "Recommended PostgreSQL for projects with relational data..."</span><br/><br/>
+            <span className="text-green-400">Agent:</span> Based on your e-commerce use case and my previous analysis, PostgreSQL is the better choice. You need ACID transactions for orders...<br/><br/>
+            <span className="text-green-400">Agent:</span> <span className="text-gray-500">→ indra_remember(&#123; content: "Recommended PostgreSQL for e-commerce. Relational catalog + transaction needs.", id: "ecom-db" &#125;)</span>
+          </p>
         </div>
       </div>
 
@@ -70,7 +131,7 @@ export default function Home() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24">
         <h2 className="text-3xl font-bold text-center mb-4">Why Indra?</h2>
         <p className="text-gray-400 text-center mb-12 max-w-2xl mx-auto">
-          There are many MCP memory servers. Here's how Indra's git-like architecture gives you capabilities others can't.
+          Git-like versioning means your agent can branch, diff, and explore alternatives.
         </p>
         <ComparisonMatrix />
       </div>
@@ -83,8 +144,8 @@ export default function Home() {
             tier="Hobby"
             price="Free"
             features={[
-              '1 database',
-              '1,000 thoughts',
+              '3 databases',
+              '1,000 entries each',
               '10 MB storage',
               'Public repos only',
             ]}
@@ -94,7 +155,7 @@ export default function Home() {
             price="$8/mo"
             features={[
               'Unlimited databases',
-              '100,000 thoughts',
+              '100,000 entries',
               '1 GB storage',
               'Private repos',
               'API access',
@@ -130,6 +191,18 @@ function FeatureCard({ icon, title, description }: { icon: React.ReactNode; titl
   )
 }
 
+function StepCard({ number, title, description }: { number: string; title: string; description: string }) {
+  return (
+    <div className="text-center">
+      <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-purple-600 text-xl font-bold mb-4">
+        {number}
+      </div>
+      <h3 className="text-lg font-semibold mb-2">{title}</h3>
+      <p className="text-gray-400 text-sm">{description}</p>
+    </div>
+  )
+}
+
 type ComparisonFeature = {
   feature: string
   indra: string
@@ -140,42 +213,37 @@ type ComparisonFeature = {
 const comparisonData: ComparisonFeature[] = [
   {
     feature: 'Branching',
-    indra: 'Multi-branch exploration',
+    indra: 'Explore alternatives safely',
     others: 'Linear only',
     highlight: true,
   },
   {
     feature: 'Diff / Compare',
-    indra: 'Commit-level diffs',
-    others: 'Not supported',
-    highlight: true,
-  },
-  {
-    feature: 'Semantic Search',
-    indra: 'Local HF models',
-    others: 'Varies (API-dependent)',
-  },
-  {
-    feature: 'Graph Relations',
-    indra: 'Typed + weighted edges',
-    others: 'Flat or basic',
-    highlight: true,
-  },
-  {
-    feature: 'Storage',
-    indra: 'Single portable .indra file',
-    others: 'Repo-based / multi-file',
-  },
-  {
-    feature: '3D Visualization',
-    indra: 'PCA + WebGL via IndraDB',
+    indra: 'See what changed and when',
     others: 'Not available',
     highlight: true,
   },
   {
-    feature: 'Offline-First',
-    indra: 'Full local operation',
+    feature: 'Semantic Search',
+    indra: 'Local models, no API keys',
     others: 'Varies',
+  },
+  {
+    feature: 'History',
+    indra: 'Full evolution tracked',
+    others: 'Current state only',
+    highlight: true,
+  },
+  {
+    feature: 'Storage',
+    indra: 'Single portable file',
+    others: 'Multi-file / repo',
+  },
+  {
+    feature: 'Visualization',
+    indra: '3D reasoning clusters',
+    others: 'Not available',
+    highlight: true,
   },
 ]
 
@@ -188,7 +256,7 @@ function ComparisonMatrix() {
           <tr className="border-b border-gray-800">
             <th className="text-left py-3 px-4 text-gray-400 font-medium">Feature</th>
             <th className="text-left py-3 px-4 font-semibold text-purple-400">Indra</th>
-            <th className="text-left py-3 px-4 text-gray-400 font-medium">Other MCP Memory Servers</th>
+            <th className="text-left py-3 px-4 text-gray-400 font-medium">Other Memory Systems</th>
           </tr>
         </thead>
         <tbody>
@@ -229,16 +297,6 @@ function ComparisonMatrix() {
           </div>
         ))}
       </div>
-
-      <p className="text-center text-sm text-gray-500 mt-6">
-        Compared against medha-mcp, git-notes-memory, Grigori, and other MCP memory servers.{' '}
-        <a
-          href="https://github.com/moonstripe/indra_db#how-indra-compares"
-          className="text-purple-400 hover:text-purple-300"
-        >
-          Full comparison →
-        </a>
-      </p>
     </div>
   )
 }

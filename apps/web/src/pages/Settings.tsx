@@ -402,7 +402,7 @@ export default function Settings() {
               {/* Price Display */}
               <div className="flex items-baseline gap-2 mb-6">
                 <span className="text-4xl font-bold">
-                  {selectedInterval === 'monthly' ? '$10' : '$100'}
+                  {selectedInterval === 'monthly' ? '$8' : '$80'}
                 </span>
                 <span className="text-gray-400">
                   /{selectedInterval === 'monthly' ? 'month' : 'year'}
@@ -420,7 +420,7 @@ export default function Settings() {
                     Redirecting to checkout...
                   </span>
                 ) : (
-                  `Upgrade to Pro - ${selectedInterval === 'monthly' ? '$10/mo' : '$100/yr'}`
+                  `Upgrade to Pro - ${selectedInterval === 'monthly' ? '$8/mo' : '$80/yr'}`
                 )}
               </button>
             </div>
@@ -441,7 +441,7 @@ export default function Settings() {
             />
             <PlanCard
               name="Pro"
-              price={selectedInterval === 'monthly' ? '$10/mo' : '$100/yr'}
+              price={selectedInterval === 'monthly' ? '$8/mo' : '$80/yr'}
               features={[
                 'Unlimited databases',
                 '100,000 thoughts',

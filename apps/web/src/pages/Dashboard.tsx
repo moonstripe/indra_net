@@ -121,6 +121,7 @@ export default function Dashboard() {
           <ActivityHeatmap
             dates={activityDates}
             label="Your Activity"
+            weeks={52}
           />
         </div>
       )}

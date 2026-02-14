@@ -91,7 +91,7 @@ export default function Home() {
           />
           <PricingCard
             tier="Pro"
-            price="$10/mo"
+            price="$8/mo"
             features={[
               'Unlimited databases',
               '100,000 thoughts',

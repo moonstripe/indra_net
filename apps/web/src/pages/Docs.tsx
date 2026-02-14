@@ -117,84 +117,116 @@ function QuickstartSection({ user }: { user: any }) {
     <div className="prose prose-invert max-w-none">
       <h1 className="text-3xl font-bold mb-2">Quickstart</h1>
       <p className="text-gray-400 text-lg mb-8">
-        Get up and running with IndraDB in under 5 minutes.
+        Get up and running with IndraDB in under 5 minutes. IndraDB is designed primarily for <strong>AI agents</strong> to persist memory across sessions — manual CLI usage is optional.
       </p>
+
+      {/* Agent-first callout */}
+      <div className="bg-purple-900/20 border border-purple-800/50 rounded-lg p-4 mb-8 not-prose">
+        <div className="flex gap-3">
+          <Brain className="w-6 h-6 text-purple-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <h3 className="font-semibold text-purple-300 mb-1">Agent-First Design</h3>
+            <p className="text-gray-400 text-sm">
+              IndraDB is built for AI agents like Claude, GPT, and Codex to autonomously remember context, preferences, and insights. 
+              The MCP server lets agents use <code className="text-purple-400">indra_remember</code> and <code className="text-purple-400">indra_search</code> naturally during conversations.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Step 1: Install */}
       <div className="mb-8">
         <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-sm">1</span>
-          Install the CLI
+          Install the CLI & MCP Server
         </h2>
         <p className="text-gray-400 mb-4">
-          Install the <code className="text-purple-400">indra</code> CLI using cargo (Rust's package manager):
+          Install both the CLI and MCP server:
         </p>
-        <CodeBlock code="cargo install indra_db" />
+        <CodeBlock code={`# Install the CLI (requires Rust)
+cargo install indra_db
+
+# Install the MCP server (requires Bun)
+bun add -g indra_db_mcp`} />
         <p className="text-gray-500 text-sm mt-2">
-          Don't have Rust? <a href="https://rustup.rs" className="text-purple-400 hover:text-purple-300">Install it here</a> first.
+          Don't have these? <a href="https://rustup.rs" className="text-purple-400 hover:text-purple-300">Install Rust</a> • <a href="https://bun.sh" className="text-purple-400 hover:text-purple-300">Install Bun</a>
         </p>
       </div>
 
-      {/* Step 2: Create database */}
+      {/* Step 2: Initialize in your project */}
       <div className="mb-8">
         <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-sm">2</span>
-          Create your first database
+          Initialize in your project
         </h2>
         <p className="text-gray-400 mb-4">
-          Initialize a new <code className="text-purple-400">.indra</code> database in your project:
+          Create a <code className="text-purple-400">.indra</code> database in your repository:
         </p>
         <CodeBlock code={`cd your-project
 indra init`} />
         <p className="text-gray-500 text-sm mt-2">
-          This creates a <code className="text-purple-400">.indra</code> file - a single portable database.
+          This creates a portable <code className="text-purple-400">.indra</code> file that stores all thoughts with embeddings.
         </p>
       </div>
 
-      {/* Step 3: Add thoughts */}
+      {/* Step 3: Configure your agent */}
       <div className="mb-8">
         <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-sm">3</span>
-          Add your first thought
+          Configure your AI agent
         </h2>
         <p className="text-gray-400 mb-4">
-          Store a thought with automatic semantic embedding:
+          Add the MCP server to your agent's configuration. Here's an example for Claude Code:
         </p>
-        <CodeBlock code={`indra add "The user prefers dark mode and concise responses"`} />
+        <CodeBlock code={`# In your project's CLAUDE.md or ~/.claude/CLAUDE.md:
+
+## Memory
+
+Use the Indra MCP tools to remember important context:
+- Use \`indra_remember\` to save user preferences, decisions, and insights
+- Use \`indra_search\` to recall relevant context before responding
+
+@import node_modules/indra_db_mcp/INDRA_INSTRUCTIONS.md`} />
         <p className="text-gray-500 text-sm mt-2">
-          Thoughts are automatically embedded using a local HuggingFace model (no API keys needed).
+          See the <button onClick={() => {}} className="text-purple-400 hover:text-purple-300">MCP Server</button> section for setup guides for Claude Desktop, OpenCode, and Codex.
         </p>
       </div>
 
-      {/* Step 4: Search */}
+      {/* Step 4: Start an agent session */}
       <div className="mb-8">
         <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-sm">4</span>
-          Search semantically
+          Start an agent session
         </h2>
         <p className="text-gray-400 mb-4">
-          Find related thoughts using semantic similarity:
+          Launch your agent and let it build context over time:
         </p>
-        <CodeBlock code={`indra search "user preferences" --limit 5`} />
+        <CodeBlock code={`# The agent will automatically use Indra during conversations:
+# - "Remember that I prefer TypeScript for new projects"
+# - "What do you know about my coding preferences?"
+# - "Save this architectural decision for future reference"`} />
+        <p className="text-gray-500 text-sm mt-2">
+          The agent handles memory autonomously — you don't need to manage it manually.
+        </p>
       </div>
 
-      {/* Step 5: Sync (optional) */}
+      {/* Step 5: Sync to IndraDB */}
       <div className="mb-8">
         <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-purple-600 text-sm">5</span>
-          Sync to IndraDB (optional)
+          Visualize & sync (optional)
         </h2>
         <p className="text-gray-400 mb-4">
-          Push your database to the cloud for visualization and backup:
+          Push to IndraDB to visualize your agent's knowledge in 3D:
         </p>
         <CodeBlock code={`# Login to IndraDB
 indra login
 
-# Add a remote (like git)
+# Add a remote
 indra remote add origin ${user?.name || 'username'}/my-agent-memory
 
-# Push with visualization data
-indra push origin --viz`} />
+# Push (automatically includes visualization data)
+indra push origin`} />
         <p className="text-gray-500 text-sm mt-2">
           {user ? (
             <Link to="/dashboard" className="text-purple-400 hover:text-purple-300">
@@ -202,7 +234,7 @@ indra push origin --viz`} />
             </Link>
           ) : (
             <Link to="/login" className="text-purple-400 hover:text-purple-300">
-              Sign up to sync your databases →
+              Sign up to sync and visualize →
             </Link>
           )}
         </p>
@@ -214,7 +246,7 @@ indra push origin --viz`} />
         <ul className="space-y-2">
           <li className="flex items-center gap-2 text-gray-400">
             <ChevronRight className="w-4 h-4 text-purple-400" />
-            <span>Set up the <button onClick={() => {}} className="text-purple-400 hover:text-purple-300">MCP server</button> for AI agent integration</span>
+            <span>Read the <button onClick={() => {}} className="text-purple-400 hover:text-purple-300">MCP Server</button> docs for detailed agent setup</span>
           </li>
           <li className="flex items-center gap-2 text-gray-400">
             <ChevronRight className="w-4 h-4 text-purple-400" />
@@ -222,7 +254,7 @@ indra push origin --viz`} />
           </li>
           <li className="flex items-center gap-2 text-gray-400">
             <ChevronRight className="w-4 h-4 text-purple-400" />
-            <span>Explore <button onClick={() => {}} className="text-purple-400 hover:text-purple-300">edge relationships</button> between thoughts</span>
+            <span>Explore <button onClick={() => {}} className="text-purple-400 hover:text-purple-300">CLI commands</button> for manual management</span>
           </li>
         </ul>
       </div>
@@ -305,7 +337,7 @@ indra remote remove origin`} />
 
       <h3 className="text-lg font-medium mt-6 mb-2">push / pull</h3>
       <p className="text-gray-400 mb-2">Sync with remote:</p>
-      <CodeBlock code={`indra push origin --viz    # Push with visualization data
+      <CodeBlock code={`indra push origin           # Push (includes visualization data by default)
 indra pull origin          # Pull latest`} />
 
       <h3 className="text-lg font-medium mt-6 mb-2">clone</h3>
@@ -320,30 +352,130 @@ function MCPSection() {
     <div className="prose prose-invert max-w-none">
       <h1 className="text-3xl font-bold mb-2">MCP Server</h1>
       <p className="text-gray-400 text-lg mb-8">
-        Integrate IndraDB with AI agents using the Model Context Protocol.
+        Integrate IndraDB with AI agents using the Model Context Protocol. Supports Claude Code, Claude Desktop, OpenCode, Codex, and any MCP-compatible client.
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-4">Installation</h2>
       <p className="text-gray-400 mb-4">
-        Install the MCP server package:
+        Install the MCP server globally:
       </p>
-      <CodeBlock code="npm install -g indra_db_mcp" />
+      <CodeBlock code={`# Using Bun (recommended)
+bun add -g indra_db_mcp
 
-      <h2 className="text-xl font-semibold mt-8 mb-4">Claude Desktop Configuration</h2>
+# Or using npm
+npm install -g indra_db_mcp`} />
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">Claude Code Setup</h2>
       <p className="text-gray-400 mb-4">
-        Add to your Claude Desktop config (<code className="text-purple-400">~/Library/Application Support/Claude/claude_desktop_config.json</code>):
+        For Claude Code (Anthropic's CLI agent), add to your project's <code className="text-purple-400">CLAUDE.md</code> or global <code className="text-purple-400">~/.claude/CLAUDE.md</code>:
+      </p>
+      <CodeBlock code={`# CLAUDE.md
+
+## Memory & Context
+
+This project uses IndraDB for persistent memory. Use the Indra tools to:
+- Remember important user preferences and decisions
+- Search for relevant context before responding
+- Track the evolution of understanding over time
+
+@import node_modules/indra_db_mcp/INDRA_INSTRUCTIONS.md`} />
+      <p className="text-gray-500 text-sm mt-2">
+        Claude Code automatically discovers MCP servers from your project's <code className="text-purple-400">package.json</code> or config.
+      </p>
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">Claude Desktop Setup</h2>
+      <p className="text-gray-400 mb-4">
+        Add to your Claude Desktop config at <code className="text-purple-400">~/Library/Application Support/Claude/claude_desktop_config.json</code> (macOS) or <code className="text-purple-400">%APPDATA%\\Claude\\claude_desktop_config.json</code> (Windows):
       </p>
       <CodeBlock code={`{
   "mcpServers": {
     "indra": {
-      "command": "indra_db_mcp",
-      "args": [],
+      "command": "bunx",
+      "args": ["-y", "indra_db_mcp"],
+      "env": {
+        "INDRA_DB_PATH": "~/.indra"
+      }
+    }
+  }
+}`} />
+      <p className="text-gray-500 text-sm mt-2">
+        Restart Claude Desktop after saving. The Indra tools will appear in Claude's tool palette.
+      </p>
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">OpenCode Setup</h2>
+      <p className="text-gray-400 mb-4">
+        For OpenCode, add to <code className="text-purple-400">~/.config/opencode/opencode.json</code> or your project's <code className="text-purple-400">opencode.json</code>:
+      </p>
+      <CodeBlock code={`{
+  "mcpServers": {
+    "indra": {
+      "command": ["bunx", "-y", "indra_db_mcp"],
+      "type": "local"
+    }
+  },
+  "instructions": ["node_modules/indra_db_mcp/INDRA_INSTRUCTIONS.md"]
+}`} />
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">Codex Setup</h2>
+      <p className="text-gray-400 mb-4">
+        For OpenAI Codex and compatible clients, configure the MCP server in your agent's tool configuration:
+      </p>
+      <CodeBlock code={`{
+  "tools": {
+    "mcp": {
+      "servers": {
+        "indra": {
+          "command": "bunx",
+          "args": ["-y", "indra_db_mcp"],
+          "env": {
+            "INDRA_DB_PATH": "./.indra"
+          }
+        }
+      }
+    }
+  }
+}`} />
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">Generic MCP Client</h2>
+      <p className="text-gray-400 mb-4">
+        For any MCP-compatible client, use this standard configuration:
+      </p>
+      <CodeBlock code={`{
+  "mcpServers": {
+    "indra": {
+      "command": "bunx",
+      "args": ["-y", "indra_db_mcp"],
       "env": {
         "INDRA_DB_PATH": "/path/to/.indra"
       }
     }
   }
 }`} />
+
+      <h2 className="text-xl font-semibold mt-8 mb-4">Environment Variables</h2>
+      <div className="not-prose">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-800">
+              <th className="text-left py-2 px-3 text-gray-400">Variable</th>
+              <th className="text-left py-2 px-3 text-gray-400">Description</th>
+              <th className="text-left py-2 px-3 text-gray-400">Default</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b border-gray-800/50">
+              <td className="py-2 px-3 font-mono text-purple-400">INDRA_DB_PATH</td>
+              <td className="py-2 px-3 text-gray-400">Path to .indra database</td>
+              <td className="py-2 px-3 text-gray-500">./.indra</td>
+            </tr>
+            <tr className="border-b border-gray-800/50">
+              <td className="py-2 px-3 font-mono text-purple-400">INDRA_API_URL</td>
+              <td className="py-2 px-3 text-gray-400">API endpoint for sync</td>
+              <td className="py-2 px-3 text-gray-500">https://api.indradb.net</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <h2 className="text-xl font-semibold mt-8 mb-4">Available Tools</h2>
       <p className="text-gray-400 mb-4">
@@ -353,47 +485,70 @@ function MCPSection() {
       <div className="space-y-4">
         <ToolCard 
           name="indra_remember" 
-          description="Store a new thought with automatic embedding"
+          description="Save information to improve future conversations. Automatically creates embeddings for semantic search."
           params={['content: string', 'type?: string', 'attrs?: object']}
         />
         <ToolCard 
           name="indra_search" 
-          description="Semantic search across stored thoughts"
+          description="Recall what you know about this user and topic. Use '*' to list all notes."
           params={['query: string', 'limit?: number']}
         />
         <ToolCard 
-          name="indra_list" 
-          description="List recent thoughts"
-          params={['limit?: number']}
-        />
-        <ToolCard 
-          name="indra_get" 
-          description="Get a specific thought by ID"
-          params={['id: string']}
-        />
-        <ToolCard 
-          name="indra_relate" 
-          description="Create a relationship between two thoughts"
-          params={['from_id: string', 'to_id: string', 'edge_type: string']}
+          name="indra_status" 
+          description="Check database status - current branch, note count, sync state."
+          params={[]}
         />
         <ToolCard 
           name="indra_branch" 
-          description="Create or switch branches for parallel exploration"
-          params={['name: string', 'action?: create|checkout']}
+          description="Create, switch, or list branches for parallel exploration."
+          params={['action: create|switch|list', 'name?: string']}
+        />
+        <ToolCard 
+          name="indra_experiment" 
+          description="Quick sandbox - creates and switches to a new branch in one step."
+          params={['name: string']}
+        />
+        <ToolCard 
+          name="indra_history" 
+          description="View how notes evolved over time."
+          params={['limit?: number']}
+        />
+        <ToolCard 
+          name="indra_diff" 
+          description="Compare two points in history to see what changed."
+          params={['from: string', 'to?: string']}
         />
       </div>
 
       <h2 className="text-xl font-semibold mt-8 mb-4">Example Usage</h2>
       <p className="text-gray-400 mb-4">
-        Once configured, Claude can use IndraDB naturally:
+        Once configured, AI agents can use IndraDB naturally:
       </p>
-      <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4">
-        <p className="text-gray-300 italic">
-          "Remember that the user prefers TypeScript over JavaScript for new projects."
-        </p>
-        <p className="text-gray-500 text-sm mt-2">
-          → Claude uses <code className="text-purple-400">indra_remember</code> to store this preference
-        </p>
+      <div className="bg-gray-900/50 border border-gray-800 rounded-lg p-4 space-y-4">
+        <div>
+          <p className="text-gray-300 italic">
+            "Remember that the user prefers TypeScript over JavaScript for new projects."
+          </p>
+          <p className="text-gray-500 text-sm mt-1">
+            → Agent uses <code className="text-purple-400">indra_remember</code> to store this preference
+          </p>
+        </div>
+        <div>
+          <p className="text-gray-300 italic">
+            "What are this user's coding preferences?"
+          </p>
+          <p className="text-gray-500 text-sm mt-1">
+            → Agent uses <code className="text-purple-400">indra_search</code> to find relevant context
+          </p>
+        </div>
+        <div>
+          <p className="text-gray-300 italic">
+            "Let me explore an alternative approach..."
+          </p>
+          <p className="text-gray-500 text-sm mt-1">
+            → Agent uses <code className="text-purple-400">indra_experiment</code> to create a sandbox branch
+          </p>
+        </div>
       </div>
     </div>
   )
@@ -456,7 +611,7 @@ function WebSection() {
             <tr className="border-b border-gray-800">
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Feature</th>
               <th className="text-left py-3 px-4 text-gray-400 font-medium">Hobby (Free)</th>
-              <th className="text-left py-3 px-4 text-purple-400 font-medium">Pro ($10/mo)</th>
+              <th className="text-left py-3 px-4 text-purple-400 font-medium">Pro ($8/mo)</th>
             </tr>
           </thead>
           <tbody className="text-sm">

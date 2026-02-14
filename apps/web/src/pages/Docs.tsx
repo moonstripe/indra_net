@@ -304,7 +304,10 @@ function MCPSection() {
       </p>
 
       <h2 className="text-xl font-semibold mt-8 mb-4">Installation</h2>
-      <CodeBlock code={`bun add -g indra_db_mcp`} />
+      <p className="text-gray-400 mb-4">
+        No installation required — use <code className="text-purple-400">bunx</code> for automatic updates:
+      </p>
+      <CodeBlock code={`bunx -y indra_db_mcp@latest`} />
 
       <h2 className="text-xl font-semibold mt-8 mb-4">Configuration</h2>
 
@@ -322,31 +325,34 @@ function MCPSection() {
   "mcpServers": {
     "indra": {
       "command": "bunx",
-      "args": ["-y", "indra_db_mcp"]
+      "args": ["-y", "indra_db_mcp@latest"]
     }
   }
 }`} />
 
       <h3 className="text-lg font-medium mt-6 mb-2">OpenCode</h3>
       <p className="text-gray-400 mb-4">
-        Add to <code className="text-purple-400">opencode.json</code>:
+        Add to <code className="text-purple-400">~/.config/opencode/opencode.json</code>:
       </p>
       <CodeBlock code={`{
-  "mcpServers": {
+  "mcp": {
     "indra": {
-      "command": ["bunx", "-y", "indra_db_mcp"],
+      "command": ["bunx", "-y", "indra_db_mcp@latest"],
       "type": "local"
     }
   },
-  "instructions": ["node_modules/indra_db_mcp/INDRA_INSTRUCTIONS.md"]
+  "instructions": ["~/.config/opencode/instructions/indra.md"]
 }`} />
+      <p className="text-gray-500 text-sm mt-2">
+        Copy the instructions file: <code className="text-purple-400">curl -o ~/.config/opencode/instructions/indra.md https://raw.githubusercontent.com/moonstripe/indra_db_mcp/main/INDRA_INSTRUCTIONS.md</code>
+      </p>
 
       <h3 className="text-lg font-medium mt-6 mb-2">Generic MCP Client</h3>
       <CodeBlock code={`{
   "mcpServers": {
     "indra": {
       "command": "bunx",
-      "args": ["-y", "indra_db_mcp"],
+      "args": ["-y", "indra_db_mcp@latest"],
       "env": { "INDRA_DB_PATH": "./.indra" }
     }
   }
